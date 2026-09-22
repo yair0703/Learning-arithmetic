@@ -387,9 +387,36 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
 
                 {parentError && (
-                  <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl flex items-center gap-2 font-medium">
-                    <AlertCircle className="w-4 h-4 shrink-0" />
-                    <span>{parentError}</span>
+                  <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-2xl flex flex-col gap-2 font-medium">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                      <span>{parentError}</span>
+                    </div>
+
+                    {parentError.includes('מורשה') && typeof window !== 'undefined' && (
+                      <div className="bg-white/90 p-3 rounded-xl border border-rose-300 text-[11px] text-slate-800 flex flex-col gap-1.5 mt-1">
+                        <div className="font-bold text-indigo-900">כיצד לאשר את הדומיין ב-Firebase:</div>
+                        <ol className="list-decimal list-inside space-y-1 text-slate-700">
+                          <li>היכנס ל-<strong>Firebase Console</strong> לפרויקט שלך</li>
+                          <li>עבור אל <strong>Authentication</strong> ➔ <strong>Settings</strong> (הגדרות)</li>
+                          <li>בלשונית <strong>Authorized domains</strong> לחץ על <strong>Add domain</strong></li>
+                          <li>הדבק את הדומיין הבא:</li>
+                        </ol>
+                        <div className="flex items-center justify-between bg-slate-100 p-2 rounded-lg font-mono text-[11px] text-indigo-950 font-bold">
+                          <span className="truncate">{window.location.hostname}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(window.location.hostname);
+                              alert('הדומיין הועתק ללוח!');
+                            }}
+                            className="text-xs text-indigo-600 hover:text-indigo-800 font-sans font-bold underline cursor-pointer shrink-0 mr-2"
+                          >
+                            העתק
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
