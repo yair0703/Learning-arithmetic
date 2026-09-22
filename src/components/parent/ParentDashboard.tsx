@@ -5,6 +5,7 @@ import { generateParentDiagnosticReport, seedDemoProgress, getInitialProgress, s
 import { WeeklyProgressChart } from './WeeklyProgressChart';
 import { ParentPinLock } from './ParentPinLock';
 import { ChangePinModal } from './ChangePinModal';
+import { CloudSyncCard } from './CloudSyncCard';
 import {
   ShieldCheck,
   Award,
@@ -308,6 +309,15 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
           </div>
         </div>
       )}
+
+      {/* Cloud Sync & Backup Hub */}
+      <CloudSyncCard
+        progress={progress}
+        onProgressUpdate={(newProg) => {
+          onProgressUpdate(newProg);
+          setReport(generateParentDiagnosticReport(newProg));
+        }}
+      />
 
       {/* Parent utilities & mock data */}
       <div className="bg-slate-100 p-4 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs text-slate-600">

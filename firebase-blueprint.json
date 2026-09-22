@@ -1,0 +1,30 @@
+{
+  "entities": {
+    "StudentProgressDoc": {
+      "title": "Student Progress",
+      "description": "Stores student mathematics practice progress, streak, accuracy, and error logs in Firestore.",
+      "type": "object",
+      "properties": {
+        "studentId": { "type": "string" },
+        "studentName": { "type": "string" },
+        "totalSolved": { "type": "number" },
+        "totalCorrect": { "type": "number" },
+        "totalIncorrect": { "type": "number" },
+        "timeSpentSeconds": { "type": "number" },
+        "dailyStreak": { "type": "number" },
+        "lastActiveDate": { "type": "string" },
+        "dailyHistory": { "type": "object" },
+        "topicsProgress": { "type": "object" },
+        "errorLog": { "type": "array" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["studentId", "totalSolved", "totalCorrect", "topicsProgress"]
+    }
+  },
+  "firestore": {
+    "/students/{studentId}": {
+      "schema": "StudentProgressDoc",
+      "description": "Collection of student fraction learning records"
+    }
+  }
+}

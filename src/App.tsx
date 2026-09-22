@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { TopicId, TopicStage, StudentProgress } from './types';
 import { loadStudentProgress, saveStudentProgress } from './utils/storage';
+import { saveStudentProgressToCloud, loadStudentProgressFromCloud, getStudentCloudId } from './utils/firebase';
 import { HomeScreen } from './components/home/HomeScreen';
 import { TopicView } from './components/TopicView';
 import { DailyPracticeView } from './components/daily/DailyPracticeView';
@@ -18,7 +19,10 @@ import {
   Trophy,
   CalendarCheck,
   Target,
-  GraduationCap
+  GraduationCap,
+  Cloud,
+  Check,
+  RefreshCw
 } from 'lucide-react';
 
 type AppView = 'home' | 'topic' | 'daily' | 'reinforcement' | 'parent';
@@ -30,12 +34,55 @@ export default function App() {
   const [topicInitialStage, setTopicInitialStage] = useState<TopicStage>('understand');
   const [isSandboxOpen, setIsSandboxOpen] = useState<boolean>(false);
   const [isMistakeModalOpen, setIsMistakeModalOpen] = useState<boolean>(false);
+  const [cloudSyncState, setCloudSyncState] = useState<'synced' | 'syncing' | 'error'>('synced');
+  const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Sync to local storage whenever progress changes
+  // Sync to local storage & background cloud sync whenever progress changes
   const handleProgressUpdate = (newProgress: StudentProgress) => {
     setProgress(newProgress);
     saveStudentProgress(newProgress);
+
+    // Debounced Cloud Sync
+    setCloudSyncState('syncing');
+    if (syncTimeoutRef.current) {
+      clearTimeout(syncTimeoutRef.current);
+    }
+    syncTimeoutRef.current = setTimeout(async () => {
+      try {
+        const res = await saveStudentProgressToCloud(newProgress);
+        if (res.success) {
+          setCloudSyncState('synced');
+        } else {
+          setCloudSyncState('error');
+        }
+      } catch {
+        setCloudSyncState('error');
+      }
+    }, 800);
   };
+
+  // Initial cloud check on first mount
+  useEffect(() => {
+    const initSync = async () => {
+      try {
+        // If local progress is empty, try loading from cloud
+        if (progress.totalSolved === 0) {
+          const cloudRes = await loadStudentProgressFromCloud();
+          if (cloudRes.success && cloudRes.data && cloudRes.data.totalSolved > 0) {
+            setProgress(cloudRes.data);
+            saveStudentProgress(cloudRes.data);
+          }
+        } else {
+          // Push local to cloud
+          await saveStudentProgressToCloud(progress);
+        }
+        setCloudSyncState('synced');
+      } catch {
+        // keep local state
+      }
+    };
+    initSync();
+  }, []);
 
   const handleSelectTopicToLearn = (topicId: TopicId) => {
     setSelectedTopicId(topicId);
@@ -87,6 +134,33 @@ export default function App() {
 
           {/* Quick Actions & Stats */}
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* Cloud Sync Status Badge */}
+            <div
+              className={`hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold border transition-colors ${
+                cloudSyncState === 'synced'
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                  : cloudSyncState === 'syncing'
+                  ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                  : 'bg-rose-50 text-rose-700 border-rose-200'
+              }`}
+              title={
+                cloudSyncState === 'synced'
+                  ? 'מסונכרן ומאובטח בענן Firebase'
+                  : cloudSyncState === 'syncing'
+                  ? 'מסנכרן שינויים בענן...'
+                  : 'שגיאת סנכרון ענן (נשמר מקומית)'
+              }
+            >
+              {cloudSyncState === 'syncing' ? (
+                <RefreshCw className="w-3.5 h-3.5 text-indigo-600 animate-spin" />
+              ) : (
+                <Cloud className="w-3.5 h-3.5 text-emerald-600" />
+              )}
+              <span className="text-[11px]">
+                {cloudSyncState === 'syncing' ? 'מסנכרן...' : 'ענן פעיל'}
+              </span>
+            </div>
+
             {/* Daily Streak */}
             <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-900 border border-amber-200 rounded-xl text-xs font-bold">
               <Flame className="w-4 h-4 text-amber-500" />
