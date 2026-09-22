@@ -269,13 +269,16 @@ export async function loginParentWithGoogle(): Promise<{ success: boolean; user?
     return { success: true, user: result.user };
   } catch (err: any) {
     let errorMsg = 'שגיאה בהתחברות באמצעות Google';
+    const errStr = (err?.code || '') + ' ' + (err?.message || '');
     if (err.code === 'auth/unauthorized-domain') {
       const currentHost = typeof window !== 'undefined' ? window.location.hostname : 'run.app';
-      errorMsg = `הדומיין הנוכחי (${currentHost}) אינו מורשה ב-Firebase Console. יש להוסיף אותו ב-Firebase -> Authentication -> Settings -> Authorized domains`;
+      errorMsg = `הדומיין (${currentHost}) אינו מורשה ב-Firebase. יש להוסיף אותו ב-Firebase Console -> Authentication -> Settings -> Authorized domains`;
+    } else if (err.code === 'auth/api-key-not-valid' || errStr.includes('api-key-not-valid') || errStr.includes('API key')) {
+      errorMsg = 'מפתח ה-API (apiKey) שהוגדר ב-Firebase אינו תקין או נחתך בהעתקה. אנא ודא שהעתקת את מפתח ה-Web API המלא מ-Firebase Project Settings.';
     } else if (err.code === 'auth/popup-closed-by-user') {
       errorMsg = 'חלון ההתחברות נסגר לפני השלמת הפעולה.';
     } else if (err.code === 'auth/popup-blocked') {
-      errorMsg = 'הדפדפן חסם את חלון ההתחברות (Pop-up). אנא אשר חלונות קופצים.';
+      errorMsg = 'הדפדפן חסם את חלון ההתחברות (Pop-up). אנא אשר חלונות קופצים בדפדפן.';
     } else if (err instanceof Error) {
       errorMsg = err.message;
     }
@@ -299,9 +302,12 @@ export async function loginParentWithEmail(
     return { success: true, user: result.user };
   } catch (err: any) {
     let errorMsg = 'שגיאה בהתחברות';
+    const errStr = (err?.code || '') + ' ' + (err?.message || '');
     if (err.code === 'auth/unauthorized-domain') {
       const currentHost = typeof window !== 'undefined' ? window.location.hostname : 'run.app';
       errorMsg = `הדומיין הנוכחי (${currentHost}) אינו מורשה ב-Firebase. יש להוסיף אותו ב-Firebase Console תחת Authentication -> Settings -> Authorized domains`;
+    } else if (err.code === 'auth/api-key-not-valid' || errStr.includes('api-key-not-valid') || errStr.includes('API key')) {
+      errorMsg = 'מפתח ה-API (apiKey) אינו תקין. יש לבדוק את ה-Web API Key ב-Firebase Console (Project Settings).';
     } else if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found') {
       errorMsg = 'כתובת אימייל או סיסמה שגויות';
     } else if (err.code === 'auth/invalid-email') {
@@ -343,9 +349,12 @@ export async function registerParentWithEmail(
     return { success: true, user: result.user };
   } catch (err: any) {
     let errorMsg = 'שגיאה ברישום החשבון';
+    const errStr = (err?.code || '') + ' ' + (err?.message || '');
     if (err.code === 'auth/unauthorized-domain') {
       const currentHost = typeof window !== 'undefined' ? window.location.hostname : 'run.app';
       errorMsg = `הדומיין (${currentHost}) אינו מורשה ב-Firebase Authentication. יש להוסיף אותו ב-Firebase Console -> Authentication -> Settings -> Authorized domains`;
+    } else if (err.code === 'auth/api-key-not-valid' || errStr.includes('api-key-not-valid') || errStr.includes('API key')) {
+      errorMsg = 'מפתח ה-API (apiKey) שהוזן אינו תקין או שנחתך בהעתקה. יש לבדוק את ה-Web API key ב-Firebase Project Settings.';
     } else if (err.code === 'auth/email-already-in-use') {
       errorMsg = 'כתובת אימייל זו כבר רשומה במערכת. אנא בחר/י התחברות.';
     } else if (err.code === 'auth/weak-password') {
