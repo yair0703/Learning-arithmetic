@@ -259,34 +259,34 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-indigo-500 selection:text-white" dir="rtl">
+    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-indigo-500 selection:text-white" dir="rtl">
       {/* Top Main Navigation Header */}
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-2xs">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-2xs w-full">
+        <div className="max-w-6xl mx-auto px-3 sm:px-6 h-16 flex items-center justify-between gap-2">
           {/* Brand & Home click */}
           <button
             type="button"
             onClick={handleBackToHome}
-            className="flex items-center gap-3 text-right group"
+            className="flex items-center gap-2 sm:gap-3 text-right group shrink-0"
           >
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white flex items-center justify-center font-black text-lg shadow-sm group-hover:scale-105 transition-transform">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white flex items-center justify-center font-black text-base sm:text-lg shadow-sm group-hover:scale-105 transition-transform shrink-0">
               ½
             </div>
-            <div>
-              <div className="text-xs font-bold text-indigo-600 leading-none">
+            <div className="flex flex-col text-right">
+              <div className="text-[10px] sm:text-xs font-bold text-indigo-600 leading-none">
                 מסלולים פלוס – כיתה ה׳
               </div>
-              <div className="text-base font-black text-slate-900 leading-tight">
+              <div className="text-sm sm:text-base font-black text-slate-900 leading-tight">
                 שברים – חלק א׳
               </div>
             </div>
           </button>
 
           {/* Quick Actions & Stats */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            {/* Cloud Sync & Offline Status Badge */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* Cloud Sync & Offline Status Badge (Desktop only) */}
             <div
-              className={`hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold border transition-all ${
+              className={`hidden xl:flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold border transition-all ${
                 !isOnline || pendingQueueCount > 0
                   ? 'bg-amber-50 text-amber-900 border-amber-300 shadow-2xs'
                   : cloudSyncState === 'syncing'
@@ -326,79 +326,57 @@ export default function App() {
             </div>
 
             {/* Daily Streak */}
-            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-900 border border-amber-200 rounded-xl text-xs font-bold">
-              <Flame className="w-4 h-4 text-amber-500" />
-              <span>{progress.dailyStreak} ימי רצף</span>
+            <div className="flex items-center gap-1 px-2 sm:px-2.5 py-1 sm:py-1.5 bg-amber-50 text-amber-900 border border-amber-200 rounded-xl text-xs font-bold shrink-0">
+              <Flame className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+              <span>{progress.dailyStreak} <span className="hidden xs:inline">ימי רצף</span></span>
             </div>
 
-            {/* Total Solved Badge */}
-            <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-900 border border-indigo-200 rounded-xl text-xs font-bold">
-              <Trophy className="w-4 h-4 text-indigo-600" />
+            {/* Total Solved Badge (Desktop only) */}
+            <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 bg-indigo-50 text-indigo-900 border border-indigo-200 rounded-xl text-xs font-bold shrink-0">
+              <Trophy className="w-3.5 h-3.5 text-indigo-600" />
               <span>{progress.totalSolved} תרגילים</span>
             </div>
 
-            {/* Daily practice shortcut */}
+            {/* Daily practice shortcut (Desktop/Tablet only) */}
             <button
               type="button"
               onClick={handleStartDailyPractice}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
+              className={`hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
                 activeView === 'daily'
                   ? 'bg-emerald-600 text-white shadow-xs'
                   : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200'
               }`}
             >
-              <CalendarCheck className="w-4 h-4 text-emerald-600" />
-              <span className="hidden sm:inline">תרגול יומי</span>
+              <CalendarCheck className="w-3.5 h-3.5 text-emerald-600" />
+              <span>תרגול יומי</span>
             </button>
 
-            {/* Reinforcement topics shortcut */}
+            {/* Reinforcement topics shortcut (Desktop only) */}
             <button
               type="button"
               onClick={() => setActiveView('reinforcement')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
+              className={`hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
                 activeView === 'reinforcement'
                   ? 'bg-amber-600 text-white shadow-xs'
                   : 'bg-amber-50 text-amber-900 hover:bg-amber-100 border border-amber-200'
               }`}
               title="חיזוק נושאים הדורשים שיפור"
             >
-              <Target className="w-4 h-4 text-amber-600" />
-              <span className="hidden sm:inline">חיזוק נושאים</span>
-            </button>
-
-            {/* Find the Mistake / Be the Teacher */}
-            <button
-              type="button"
-              onClick={() => setIsMistakeModalOpen(true)}
-              className="px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 bg-teal-50 text-teal-800 hover:bg-teal-100 border border-teal-200 transition-colors"
-              title="היה אתה המורה – מצא את הטעות ועזור לחבר"
-            >
-              <GraduationCap className="w-4 h-4 text-teal-600" />
-              <span className="hidden sm:inline">היה אתה המורה</span>
-            </button>
-
-            {/* Fraction Sandbox Modal Trigger */}
-            <button
-              type="button"
-              onClick={() => setIsSandboxOpen(true)}
-              className="px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 transition-colors"
-              title="פתח מעבדת שברים אינטראקטיבית"
-            >
-              <Sparkles className="w-4 h-4 text-indigo-600" />
-              <span className="hidden sm:inline">מעבדה</span>
+              <Target className="w-3.5 h-3.5 text-amber-600" />
+              <span>חיזוק נושאים</span>
             </button>
 
             {/* Parent Area Toggle */}
             <button
               type="button"
               onClick={() => setActiveView(activeView === 'parent' ? 'home' : 'parent')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+              className={`px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
                 activeView === 'parent'
                   ? 'bg-slate-900 text-white shadow-xs'
                   : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
               }`}
             >
-              <ShieldCheck className="w-4 h-4 text-slate-500" />
+              <ShieldCheck className="w-3.5 h-3.5 text-slate-500 shrink-0" />
               <span className="hidden sm:inline">אזור הורה</span>
             </button>
 
@@ -410,11 +388,11 @@ export default function App() {
                   setAuthDefaultTab('student');
                   setIsAuthModalOpen(true);
                 }}
-                className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0"
                 title={`מחובר כתלמיד: ${userProfile.displayName || ''} (לחץ להחלפת משתמש)`}
               >
-                <User className="w-3.5 h-3.5 text-emerald-600" />
-                <span className="max-w-[80px] sm:max-w-[120px] truncate">{userProfile.displayName || 'תלמיד'}</span>
+                <User className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span className="max-w-[70px] sm:max-w-[110px] truncate">{userProfile.displayName || 'תלמיד'}</span>
                 {userProfile.studentCode && (
                   <span className="hidden sm:inline bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold">
                     {userProfile.studentCode}
@@ -428,11 +406,11 @@ export default function App() {
                   setAuthDefaultTab('parent');
                   setIsAuthModalOpen(true);
                 }}
-                className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-900 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-900 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0"
                 title={`מחובר כהורה: ${userProfile.displayName || userProfile.email || ''} (לחץ להגדרות)`}
               >
-                <ShieldCheck className="w-3.5 h-3.5 text-indigo-600" />
-                <span className="max-w-[80px] sm:max-w-[120px] truncate">{userProfile.displayName || 'הורה'}</span>
+                <ShieldCheck className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                <span className="max-w-[70px] sm:max-w-[110px] truncate">{userProfile.displayName || 'הורה'}</span>
               </button>
             ) : (
               <button
@@ -441,9 +419,9 @@ export default function App() {
                   setAuthDefaultTab('student');
                   setIsAuthModalOpen(true);
                 }}
-                className="px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer active:scale-95"
+                className="px-2.5 sm:px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-xl text-xs font-bold flex items-center gap-1 sm:gap-1.5 transition-all shadow-2xs cursor-pointer active:scale-95 shrink-0"
               >
-                <LogIn className="w-3.5 h-3.5" />
+                <LogIn className="w-3.5 h-3.5 shrink-0" />
                 <span>התחברות</span>
               </button>
             )}
@@ -452,7 +430,7 @@ export default function App() {
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-6">
+      <main className="flex-1 max-w-6xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-6 overflow-x-hidden">
         {activeView === 'home' && (
           <HomeScreen
             progress={progress}

@@ -67,12 +67,25 @@ export function getFirebaseDb(): Firestore | null {
   if (!app) return null;
 
   try {
-    const databaseId = firebaseConfigJson.firestoreDatabaseId || '(default)';
-    dbInstance = getFirestore(app, databaseId);
+    const databaseId = firebaseConfigJson.firestoreDatabaseId;
+    if (databaseId && databaseId !== '(default)') {
+      try {
+        dbInstance = getFirestore(app, databaseId);
+      } catch {
+        dbInstance = getFirestore(app);
+      }
+    } else {
+      dbInstance = getFirestore(app);
+    }
     return dbInstance;
   } catch (error) {
     console.error('Failed to initialize Firebase Firestore:', error);
-    return null;
+    try {
+      dbInstance = getFirestore(app);
+      return dbInstance;
+    } catch {
+      return null;
+    }
   }
 }
 
@@ -254,16 +267,16 @@ export async function loginParentWithGoogle(): Promise<{ success: boolean; user?
     provider.setCustomParameters({ prompt: 'select_account' });
     const result = await signInWithPopup(auth, provider);
     
-    // Also ensure parent document exists in Firestore
+    // Ensure parent document exists in Firestore in background without blocking login
     const db = getFirebaseDb();
     if (db && result.user) {
       const parentRef = doc(db, 'parents', result.user.uid);
-      await setDoc(parentRef, {
+      setDoc(parentRef, {
         email: result.user.email,
         displayName: result.user.displayName || 'הורה',
         photoURL: result.user.photoURL,
         lastLogin: new Date().toISOString()
-      }, { merge: true });
+      }, { merge: true }).catch((e) => console.warn('Firestore background parent doc warning:', e));
     }
 
     return { success: true, user: result.user };
@@ -298,7 +311,23 @@ export async function loginParentWithEmail(
   if (!auth) return { success: false, error: 'שירות האימות אינו זמין' };
 
   try {
-    const result = await signInWithEmailAndPassword(auth, email, pass);
+    const authPromise = signInWithEmailAndPassword(auth, email.trim(), pass);
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('זמן ההמתנה לשרת פג. אנא בדוק את החיבור לרשת ונסה שוב.')), 12000)
+    );
+
+    const result = await Promise.race([authPromise, timeoutPromise]);
+
+    // Update parent last login in background
+    const db = getFirebaseDb();
+    if (db && result.user) {
+      const parentRef = doc(db, 'parents', result.user.uid);
+      setDoc(parentRef, {
+        email: result.user.email,
+        lastLogin: new Date().toISOString()
+      }, { merge: true }).catch((e) => console.warn('Firestore background update warning:', e));
+    }
+
     return { success: true, user: result.user };
   } catch (err: any) {
     let errorMsg = 'שגיאה בהתחברות';
@@ -312,6 +341,8 @@ export async function loginParentWithEmail(
       errorMsg = 'כתובת אימייל או סיסמה שגויות';
     } else if (err.code === 'auth/invalid-email') {
       errorMsg = 'כתובת אימייל אינה תקינה';
+    } else if (err instanceof Error) {
+      errorMsg = err.message;
     }
     return { success: false, error: errorMsg };
   }
@@ -329,21 +360,27 @@ export async function registerParentWithEmail(
   if (!auth) return { success: false, error: 'שירות האימות אינו זמין' };
 
   try {
-    const result = await createUserWithEmailAndPassword(auth, email, pass);
+    const authPromise = createUserWithEmailAndPassword(auth, email.trim(), pass);
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('זמן ההמתנה לשרת פג. אנא בדוק את החיבור לרשת ונסה שוב.')), 12000)
+    );
+
+    const result = await Promise.race([authPromise, timeoutPromise]);
+
     if (displayName && result.user) {
-      await updateProfile(result.user, { displayName });
+      updateProfile(result.user, { displayName }).catch((e) => console.warn('Profile update warning:', e));
     }
 
-    // Create parent record in Firestore
+    // Create parent record in Firestore asynchronously without blocking login completion
     const db = getFirebaseDb();
     if (db && result.user) {
       const parentRef = doc(db, 'parents', result.user.uid);
-      await setDoc(parentRef, {
+      setDoc(parentRef, {
         email: result.user.email,
         displayName: displayName || 'הורה',
         createdAt: new Date().toISOString(),
         lastLogin: new Date().toISOString()
-      }, { merge: true });
+      }, { merge: true }).catch((e) => console.warn('Firestore parent doc write warning:', e));
     }
 
     return { success: true, user: result.user };
@@ -359,6 +396,8 @@ export async function registerParentWithEmail(
       errorMsg = 'כתובת אימייל זו כבר רשומה במערכת. אנא בחר/י התחברות.';
     } else if (err.code === 'auth/weak-password') {
       errorMsg = 'הסיסמה קצרה מדי (מינימום 6 תווים)';
+    } else if (err instanceof Error) {
+      errorMsg = err.message;
     }
     return { success: false, error: errorMsg };
   }
