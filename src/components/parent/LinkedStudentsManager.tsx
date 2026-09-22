@@ -13,12 +13,17 @@ import {
   Calendar,
   AlertCircle,
   HelpCircle,
-  Smartphone
+  Smartphone,
+  Edit2,
+  Trash2,
+  X
 } from 'lucide-react';
 import { LinkedStudentProfile, StudentProgress, UserProfile } from '../../types';
 import {
   getLinkedChildrenForParent,
   createLinkedChildProfile,
+  updateLinkedChildCode,
+  deleteLinkedChild,
   loadStudentProgressFromCloud,
   setStudentCloudId
 } from '../../utils/firebase';
@@ -39,11 +44,16 @@ export const LinkedStudentsManager: React.FC<LinkedStudentsManagerProps> = ({
   const [loading, setLoading] = useState<boolean>(true);
   const [isAddingOpen, setIsAddingOpen] = useState<boolean>(false);
   const [newStudentName, setNewStudentName] = useState<string>('');
-  const [newCustomPrefix, setNewCustomPrefix] = useState<string>('');
+  const [newExactCode, setNewExactCode] = useState<string>('');
   const [creating, setCreating] = useState<boolean>(false);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Editing code state
+  const [editingStudentId, setEditingStudentId] = useState<string | null>(null);
+  const [editCodeValue, setEditCodeValue] = useState<string>('');
+  const [updatingCode, setUpdatingCode] = useState<boolean>(false);
 
   const fetchChildren = async () => {
     if (!parentProfile.uid) {
@@ -70,6 +80,10 @@ export const LinkedStudentsManager: React.FC<LinkedStudentsManagerProps> = ({
       setErrorMsg('נא להזין את שם התלמיד/ה');
       return;
     }
+    if (!newExactCode.trim()) {
+      setErrorMsg('נא להזין קוד כניסה לתלמיד (למשל: 1234)');
+      return;
+    }
 
     setCreating(true);
     setErrorMsg(null);
@@ -78,19 +92,54 @@ export const LinkedStudentsManager: React.FC<LinkedStudentsManagerProps> = ({
     const res = await createLinkedChildProfile(
       parentProfile.uid,
       newStudentName.trim(),
-      newCustomPrefix.trim() || undefined
+      newExactCode.trim()
     );
 
     if (res.success && res.student) {
-      setSuccessMsg(`התלמיד "${res.student.studentName}" נוצר בהצלחה עם קוד כניסה: ${res.student.studentCode}`);
+      setSuccessMsg(`התלמיד "${res.student.studentName}" נוצר בהצלחה עם קוד כניסה מדויק: ${res.student.studentCode}`);
       setNewStudentName('');
-      setNewCustomPrefix('');
+      setNewExactCode('');
       setIsAddingOpen(false);
       await fetchChildren();
     } else {
       setErrorMsg(res.error || 'שגיאה ביצירת פרופיל התלמיד');
     }
     setCreating(false);
+  };
+
+  const handleStartEditCode = (child: LinkedStudentProfile) => {
+    setEditingStudentId(child.studentId);
+    setEditCodeValue(child.studentCode);
+  };
+
+  const handleSaveEditCode = async (studentId: string) => {
+    if (!editCodeValue.trim()) return;
+    setUpdatingCode(true);
+    setErrorMsg(null);
+    const res = await updateLinkedChildCode(studentId, editCodeValue.trim());
+    if (res.success) {
+      setSuccessMsg(`קוד הכניסה עודכן בהצלחה ל: ${editCodeValue.trim().toUpperCase()}`);
+      setEditingStudentId(null);
+      await fetchChildren();
+    } else {
+      setErrorMsg(res.error || 'שגיאה בעדכון הקוד');
+    }
+    setUpdatingCode(false);
+  };
+
+  const handleDeleteChild = async (child: LinkedStudentProfile) => {
+    if (!window.confirm(`האם למחוק את התלמיד/ה "${child.studentName}" (קוד: ${child.studentCode})?`)) {
+      return;
+    }
+    setLoading(true);
+    const res = await deleteLinkedChild(child.studentId);
+    if (res.success) {
+      setSuccessMsg(`התלמיד "${child.studentName}" הוסר בהצלחה`);
+      await fetchChildren();
+    } else {
+      setErrorMsg(res.error || 'שגיאה במחיקת התלמיד');
+    }
+    setLoading(false);
   };
 
   const handleCopyCode = async (code: string) => {
@@ -137,7 +186,7 @@ export const LinkedStudentsManager: React.FC<LinkedStudentsManagerProps> = ({
               </span>
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              צפייה בהתקדמות, הפקת קודי כניסה לטלפון של הילד/ה ומעקב אחר ביצועים
+              הגדרת קוד אישי לכל ילד, מעקב התקדמות וצפייה בביצועים
             </p>
           </div>
         </div>
@@ -184,13 +233,13 @@ export const LinkedStudentsManager: React.FC<LinkedStudentsManagerProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                שם התלמיד/ה (למשל: איתי):
+                שם התלמיד/ה:
               </label>
               <input
                 type="text"
                 value={newStudentName}
                 onChange={(e) => setNewStudentName(e.target.value)}
-                placeholder="הקלד/י שם..."
+                placeholder="למשל: ינון"
                 required
                 className="w-full bg-white border border-slate-300 focus:border-indigo-600 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 outline-none"
               />
@@ -198,28 +247,29 @@ export const LinkedStudentsManager: React.FC<LinkedStudentsManagerProps> = ({
 
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                קידומת קוד (אופציונלי):
+                קוד כניסה לתלמיד (בדיוק מה שיוקלט):
               </label>
               <input
                 type="text"
-                value={newCustomPrefix}
-                onChange={(e) => setNewCustomPrefix(e.target.value.toUpperCase())}
-                placeholder="למשל: ITAY או TAL"
+                value={newExactCode}
+                onChange={(e) => setNewExactCode(e.target.value.toUpperCase())}
+                placeholder="למשל: 1234 או YINON"
+                required
                 className="w-full bg-white border border-slate-300 focus:border-indigo-600 rounded-xl px-3 py-2 text-xs font-mono font-bold uppercase text-slate-800 outline-none"
               />
             </div>
           </div>
 
-          <div className="flex items-center justify-between gap-3 pt-2">
-            <p className="text-[11px] text-slate-500 leading-tight">
-              האפליקציה תפיק קוד כניסה קצר ונוח (למשל <span className="font-mono font-bold">ITAY-542</span>) אותו תיתן לילד/ה להזנה מהטלפון שלו.
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2">
+            <p className="text-[11px] text-slate-600 leading-tight">
+              הקוד שהזנת יהיה קוד הכניסה היחיד של הילד (ללא תוספות או מספרים אוטומטיים).
             </p>
             <button
               type="submit"
-              disabled={creating || !newStudentName.trim()}
+              disabled={creating || !newStudentName.trim() || !newExactCode.trim()}
               className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs cursor-pointer disabled:opacity-50 shrink-0 flex items-center gap-2"
             >
-              {creating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <span>צור פרופיל והפק קוד</span>}
+              {creating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <span>שמור תלמיד וקוד כניסה</span>}
             </button>
           </div>
         </form>
@@ -238,7 +288,7 @@ export const LinkedStudentsManager: React.FC<LinkedStudentsManagerProps> = ({
           </div>
           <h4 className="text-sm font-bold text-slate-800">עדיין לא הוספת תלמידים מקושרים</h4>
           <p className="text-xs text-slate-500 max-w-md">
-            לחץ על "+ הוסף תלמיד / ילד חדש" למעלה כדי להפיק קוד כניסה קל שהילד יוכל להזין בטלפון או בטאבלט שלו.
+            לחץ על "+ הוסף תלמיד / ילד חדש" למעלה כדי להגדיר קוד כניסה נוח (כגון 1234) שהילד יוכל להזין בטלפון או בטאבלט שלו.
           </p>
         </div>
       ) : (
@@ -250,37 +300,85 @@ export const LinkedStudentsManager: React.FC<LinkedStudentsManagerProps> = ({
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 text-white font-black text-sm flex items-center justify-center shadow-xs">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 text-white font-black text-sm flex items-center justify-center shadow-xs shrink-0">
                     {child.studentName.slice(0, 1)}
                   </div>
                   <div>
                     <h3 className="text-sm font-black text-slate-900">{child.studentName}</h3>
-                    <div className="flex items-center gap-2 text-[11px] text-slate-500 mt-0.5">
-                      <span>קוד כניסה:</span>
-                      <span className="font-mono font-black text-indigo-700 bg-white px-2 py-0.5 rounded border border-indigo-200">
-                        {child.studentCode}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => handleCopyCode(child.studentCode)}
-                        className="text-slate-400 hover:text-indigo-600 p-0.5 cursor-pointer"
-                        title="העתק קוד כניסה"
-                      >
-                        {copiedCode === child.studentCode ? (
-                          <Check className="w-3.5 h-3.5 text-emerald-600" />
-                        ) : (
-                          <Copy className="w-3.5 h-3.5" />
-                        )}
-                      </button>
-                    </div>
+                    
+                    {/* Code Display & Inline Editing */}
+                    {editingStudentId === child.studentId ? (
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <input
+                          type="text"
+                          value={editCodeValue}
+                          onChange={(e) => setEditCodeValue(e.target.value.toUpperCase())}
+                          className="w-28 bg-white border border-indigo-400 rounded-lg px-2 py-0.5 text-xs font-mono font-bold text-indigo-900 outline-none"
+                          placeholder="קוד חדש..."
+                          autoFocus
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleSaveEditCode(child.studentId)}
+                          disabled={updatingCode}
+                          className="bg-indigo-600 text-white p-1 rounded-lg hover:bg-indigo-700 cursor-pointer"
+                          title="שמור קוד"
+                        >
+                          {updatingCode ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditingStudentId(null)}
+                          className="bg-slate-200 text-slate-600 p-1 rounded-lg hover:bg-slate-300 cursor-pointer"
+                          title="ביטול"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mt-0.5">
+                        <span>קוד כניסה:</span>
+                        <span className="font-mono font-black text-indigo-700 bg-white px-2 py-0.5 rounded border border-indigo-200">
+                          {child.studentCode}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyCode(child.studentCode)}
+                          className="text-slate-400 hover:text-indigo-600 p-0.5 cursor-pointer"
+                          title="העתק קוד כניסה"
+                        >
+                          {copiedCode === child.studentCode ? (
+                            <Check className="w-3.5 h-3.5 text-emerald-600" />
+                          ) : (
+                            <Copy className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleStartEditCode(child)}
+                          className="text-slate-400 hover:text-indigo-600 p-0.5 cursor-pointer"
+                          title="ערוך קוד כניסה"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                {/* Accuracy pill */}
-                <div className="text-left">
+                {/* Actions & Accuracy */}
+                <div className="flex items-center gap-1.5">
                   <span className="inline-block bg-emerald-100 text-emerald-800 text-[11px] font-black px-2 py-0.5 rounded-full font-mono">
                     {child.accuracyRate || 0}% הצלחה
                   </span>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteChild(child)}
+                    className="text-slate-300 hover:text-rose-600 p-1 transition-colors cursor-pointer"
+                    title="מחק תלמיד"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               </div>
 
@@ -309,7 +407,7 @@ export const LinkedStudentsManager: React.FC<LinkedStudentsManagerProps> = ({
       <div className="bg-slate-100/80 p-3.5 rounded-2xl text-[11px] text-slate-600 flex items-center gap-2">
         <Smartphone className="w-4 h-4 text-indigo-600 shrink-0" />
         <span>
-          <strong>כיצד הילד נכנס מהטלפון שלו?</strong> הילד פותח את האפליקציה, לוחץ על <strong>"כניסת תלמיד 👦"</strong> ומזין את קוד הכניסה האישי שלו (אין צורך במייל או סיסמה!).
+          <strong>כיצד הילד נכנס מהטלפון שלו?</strong> הילד פותח את האפליקציה, לוחץ על <strong>"כניסת תלמיד 👦"</strong> ומזין את קוד הכניסה שהגדרת עבורו (למשל: <strong>1234</strong>).
         </span>
       </div>
     </div>

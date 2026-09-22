@@ -6,6 +6,8 @@ import {
   setDoc,
   getDoc,
   getDocs,
+  updateDoc,
+  deleteDoc,
   collection,
   query,
   where,
@@ -420,7 +422,7 @@ export async function logoutUser(): Promise<void> {
 export async function createLinkedChildProfile(
   parentId: string,
   studentName: string,
-  customCodePrefix?: string
+  customExactCode?: string
 ): Promise<{ success: boolean; student?: LinkedStudentProfile; error?: string }> {
   const db = getFirebaseDb();
   if (!db) return { success: false, error: 'מסד הנתונים בענן אינו זמין' };
@@ -429,12 +431,14 @@ export async function createLinkedChildProfile(
     const cleanName = studentName.trim();
     if (!cleanName) return { success: false, error: 'אנא הזן שם תלמיד/ה' };
 
-    // Generate readable code: e.g. ITAY-482 or TAL-915
-    const prefix = customCodePrefix
-      ? customCodePrefix.trim().toUpperCase()
-      : cleanName.replace(/[^a-zA-Zא-ת]/g, '').slice(0, 4).toUpperCase() || 'TALMID';
-    const randDigits = Math.floor(100 + Math.random() * 900);
-    const studentCode = `${prefix}-${randDigits}`;
+    // Use exact code specified by parent, without appending random numbers
+    let studentCode = '';
+    if (customExactCode && customExactCode.trim()) {
+      studentCode = customExactCode.trim().toUpperCase();
+    } else {
+      studentCode = cleanName.replace(/[^a-zA-Z0-9א-ת]/g, '').slice(0, 8).toUpperCase() || 'TALMID';
+    }
+
     const studentDocId = `student_${parentId}_${Date.now()}`;
 
     const newStudentProfile: LinkedStudentProfile = {
@@ -449,11 +453,11 @@ export async function createLinkedChildProfile(
       accuracyRate: 0
     };
 
-    // Save initial student progress document in Firestore
+    // Save initial student progress document in Firestore with timeout guard
     const studentDocRef = doc(db, 'students', studentDocId);
     const initialProgress = getInitialProgress();
 
-    await setDoc(studentDocRef, {
+    const writePromise = setDoc(studentDocRef, {
       ...initialProgress,
       studentId: studentDocId,
       studentName: cleanName,
@@ -463,10 +467,61 @@ export async function createLinkedChildProfile(
       updatedAt: new Date().toISOString()
     });
 
+    const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 8000));
+    await Promise.race([writePromise, timeoutPromise]);
+
     return { success: true, student: newStudentProfile };
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : 'שגיאה ביצירת פרופיל תלמיד';
     console.error('Error creating linked student:', err);
+    return { success: false, error: errorMsg };
+  }
+}
+
+/**
+ * Updates an existing child's login code
+ */
+export async function updateLinkedChildCode(
+  studentId: string,
+  newCode: string
+): Promise<{ success: boolean; error?: string }> {
+  const db = getFirebaseDb();
+  if (!db) return { success: false, error: 'מסד הנתונים בענן אינו זמין' };
+
+  try {
+    const cleanCode = newCode.trim().toUpperCase();
+    if (!cleanCode) return { success: false, error: 'קוד הכניסה אינו יכול להיות ריק' };
+
+    const studentDocRef = doc(db, 'students', studentId);
+    await updateDoc(studentDocRef, {
+      studentCode: cleanCode,
+      updatedAt: new Date().toISOString()
+    });
+
+    return { success: true };
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : 'שגיאה בעדכון קוד הכניסה';
+    console.error('Error updating child code:', err);
+    return { success: false, error: errorMsg };
+  }
+}
+
+/**
+ * Deletes a linked child profile from Firestore
+ */
+export async function deleteLinkedChild(
+  studentId: string
+): Promise<{ success: boolean; error?: string }> {
+  const db = getFirebaseDb();
+  if (!db) return { success: false, error: 'מסד הנתונים בענן אינו זמין' };
+
+  try {
+    const studentDocRef = doc(db, 'students', studentId);
+    await deleteDoc(studentDocRef);
+    return { success: true };
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : 'שגיאה במחיקת תלמיד';
+    console.error('Error deleting child:', err);
     return { success: false, error: errorMsg };
   }
 }
