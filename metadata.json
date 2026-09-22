@@ -1,0 +1,6 @@
+{
+  "name": "מסלולים פלוס: שברים לכיתה ה׳",
+  "description": "כלי עזר לימודי אינטראקטיבי לתרגול והבנת שברים לכיתה ה׳ לפי תוכנית הלימודים של מסלולים פלוס (מטח)",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
