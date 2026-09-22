@@ -88,6 +88,8 @@ export const StageUnderstand: React.FC<StageUnderstandProps> = ({
               targetIndex={3}
               dotColor="#059669"
               showLabels={true}
+              showMarkerLabel={true}
+              showInfoFooter={true}
               showJumpArcs={true}
               interactive={true}
             />
@@ -99,6 +101,9 @@ export const StageUnderstand: React.FC<StageUnderstandProps> = ({
               remainder={1}
               denom={3}
               color="#d97706"
+              showMathEquation={true}
+              showSummaryBadges={true}
+              showSliceLabels={true}
             />
           )}
 
@@ -109,6 +114,9 @@ export const StageUnderstand: React.FC<StageUnderstandProps> = ({
               itemsPerGroup={3}
               selectedGroups={3}
               itemName="כוכבים"
+              showStepCalculation={true}
+              showGroupFraction={true}
+              showCountPerGroup={true}
             />
           )}
 

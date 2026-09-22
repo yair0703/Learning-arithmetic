@@ -7,6 +7,7 @@ interface FractionCircleProps {
   size?: number;
   interactive?: boolean;
   onColoredChange?: (newCount: number) => void;
+  showFractionText?: boolean;
   label?: string;
 }
 
@@ -17,6 +18,7 @@ export const FractionCircleVisualizer: React.FC<FractionCircleProps> = ({
   size = 180,
   interactive = false,
   onColoredChange,
+  showFractionText = false,
   label
 }) => {
   const radius = size / 2 - 10;
@@ -85,12 +87,14 @@ export const FractionCircleVisualizer: React.FC<FractionCircleProps> = ({
           <circle cx={center} cy={center} r="6" fill="#334155" />
         </svg>
       </div>
-      <div className="flex items-center gap-2 text-sm text-slate-600">
-        <span>שבר מייצג:</span>
-        <span className="font-bold text-base px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200">
-          {coloredParts}/{totalParts}
-        </span>
-      </div>
+      {showFractionText && (
+        <div className="flex items-center gap-2 text-sm text-slate-600">
+          <span>שבר מייצג:</span>
+          <span className="font-bold text-base px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200">
+            {coloredParts}/{totalParts}
+          </span>
+        </div>
+      )}
     </div>
   );
 };

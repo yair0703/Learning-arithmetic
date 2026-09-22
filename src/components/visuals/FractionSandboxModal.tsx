@@ -247,6 +247,9 @@ export const FractionSandboxModal: React.FC<FractionSandboxProps> = ({ isOpen, o
                 coloredParts={Math.min(denom, num)}
                 color="#6366f1"
                 interactive={true}
+                showLabels={true}
+                showPartNumbers={true}
+                showInfoFooter={true}
                 onColoredChange={(val) => setNum(val)}
                 label={num > denom ? `פס שלם ראשון מלא (${denom}/${denom}) ועוד שארית` : undefined}
               />
@@ -259,6 +262,7 @@ export const FractionSandboxModal: React.FC<FractionSandboxProps> = ({ isOpen, o
                 color="#ec4899"
                 size={200}
                 interactive={true}
+                showFractionText={true}
                 onColoredChange={(val) => setNum(val)}
               />
             )}
@@ -271,6 +275,8 @@ export const FractionSandboxModal: React.FC<FractionSandboxProps> = ({ isOpen, o
                 targetIndex={num}
                 dotColor="#8b5cf6"
                 showLabels={true}
+                showMarkerLabel={true}
+                showInfoFooter={true}
                 showJumpArcs={true}
                 label="מיקום השבר על ישר המספרים:"
               />

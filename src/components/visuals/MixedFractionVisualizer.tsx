@@ -5,6 +5,9 @@ interface MixedFractionProps {
   remainder: number;  // e.g. 1
   denom: number;      // e.g. 3
   color?: string;
+  showMathEquation?: boolean;
+  showSliceLabels?: boolean;
+  showSummaryBadges?: boolean;
   label?: string;
 }
 
@@ -13,6 +16,9 @@ export const MixedFractionVisualizer: React.FC<MixedFractionProps> = ({
   remainder = 1,
   denom = 3,
   color = '#f59e0b',
+  showMathEquation = false,
+  showSliceLabels = false,
+  showSummaryBadges = false,
   label
 }) => {
   const totalImproperNumerator = wholeCount * denom + remainder;
@@ -32,13 +38,15 @@ export const MixedFractionVisualizer: React.FC<MixedFractionProps> = ({
                   className="flex-1 h-full rounded flex items-center justify-center text-[10px] font-bold text-white shadow-xs"
                   style={{ backgroundColor: color }}
                 >
-                  1/{denom}
+                  {showSliceLabels && `1/${denom}`}
                 </div>
               ))}
             </div>
-            <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
-              שלם 1 ({denom}/{denom})
-            </span>
+            {showSummaryBadges && (
+              <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                שלם 1 ({denom}/{denom})
+              </span>
+            )}
           </div>
         ))}
 
@@ -56,40 +64,44 @@ export const MixedFractionVisualizer: React.FC<MixedFractionProps> = ({
                     }`}
                     style={{ backgroundColor: isFilled ? color : undefined }}
                   >
-                    1/{denom}
+                    {showSliceLabels && `1/${denom}`}
                   </div>
                 );
               })}
             </div>
-            <span className="text-xs font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
-              חלק נוסף ({remainder}/{denom})
-            </span>
+            {showSummaryBadges && (
+              <span className="text-xs font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
+                חלק נוסף ({remainder}/{denom})
+              </span>
+            )}
           </div>
         )}
       </div>
 
-      {/* Math representation card */}
-      <div className="flex flex-wrap items-center justify-center gap-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 px-5 py-2.5 rounded-xl shadow-xs text-slate-800">
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-slate-600 font-medium">מספר מעורב:</span>
-          <span className="text-lg font-black text-amber-900 bg-white px-3 py-1 rounded-lg border border-amber-200 shadow-xs">
-            {wholeCount} ו-{remainder}/{denom}
-          </span>
-        </div>
+      {/* Math representation card - only shown when explicitly enabled (e.g. in demonstrations/teaching) */}
+      {showMathEquation && (
+        <div className="flex flex-wrap items-center justify-center gap-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 px-5 py-2.5 rounded-xl shadow-xs text-slate-800">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-600 font-medium">מספר מעורב:</span>
+            <span className="text-lg font-black text-amber-900 bg-white px-3 py-1 rounded-lg border border-amber-200 shadow-xs">
+              {wholeCount} ו-{remainder}/{denom}
+            </span>
+          </div>
 
-        <span className="text-amber-500 font-bold text-lg">=</span>
+          <span className="text-amber-500 font-bold text-lg">=</span>
 
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-slate-600 font-medium">שבר מדומה:</span>
-          <span className="text-lg font-black text-amber-900 bg-white px-3 py-1 rounded-lg border border-amber-200 shadow-xs">
-            {totalImproperNumerator}/{denom}
-          </span>
-        </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-600 font-medium">שבר מדומה:</span>
+            <span className="text-lg font-black text-amber-900 bg-white px-3 py-1 rounded-lg border border-amber-200 shadow-xs">
+              {totalImproperNumerator}/{denom}
+            </span>
+          </div>
 
-        <div className="text-xs text-slate-500 w-full text-center border-t border-amber-200/60 pt-1">
-          (בסך הכל {totalImproperNumerator} חלקים, כאשר כל {denom} חלקים מרכיבים שלם אחד מלא)
+          <div className="text-xs text-slate-500 w-full text-center border-t border-amber-200/60 pt-1">
+            (בסך הכל {totalImproperNumerator} חלקים, כאשר כל {denom} חלקים מרכיבים שלם אחד מלא)
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

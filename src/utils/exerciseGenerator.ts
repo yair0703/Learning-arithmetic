@@ -24,15 +24,60 @@ function shuffleArray<T>(array: T[]): T[] {
 }
 
 /**
+ * Ensures strict uniqueness of option labels and that exactly 1 option is correct.
+ * Prevents any accidental duplicate labels in multiple-choice exercises.
+ */
+export function sanitizeExerciseOptions(options?: ExerciseChoiceOption[]): ExerciseChoiceOption[] | undefined {
+  if (!options || options.length === 0) return options;
+
+  const seenLabels = new Set<string>();
+  const sanitized: ExerciseChoiceOption[] = [];
+  
+  // Identify the intended correct option
+  const correctOpt = options.find((o) => o.isCorrect) || options[0];
+  const normalizedCorrectLabel = correctOpt.label.trim();
+  seenLabels.add(normalizedCorrectLabel);
+
+  sanitized.push({
+    ...correctOpt,
+    id: correctOpt.id || 'opt-1',
+    label: normalizedCorrectLabel,
+    isCorrect: true
+  });
+
+  // Process remaining options and reject any duplicate labels
+  for (const opt of options) {
+    if (opt === correctOpt) continue;
+    const trimmedLabel = opt.label.trim();
+
+    if (!seenLabels.has(trimmedLabel)) {
+      seenLabels.add(trimmedLabel);
+      sanitized.push({
+        ...opt,
+        label: trimmedLabel,
+        isCorrect: false
+      });
+    }
+  }
+
+  return shuffleArray(sanitized);
+}
+
+/**
  * Generator for Topic: 'whole-part' (השבר כחלק משלם)
  */
 function generateWholePartExercise(difficulty: 1 | 2 | 3): Exercise {
   const id = `gen-wp-${Date.now()}-${getRandomInt(100, 999)}`;
   const denoms = difficulty === 1 ? [4, 5, 6, 8] : difficulty === 2 ? [6, 7, 8, 9, 10] : [7, 8, 9, 11, 12];
   const denom = denoms[getRandomInt(0, denoms.length - 1)];
-  const num = getRandomInt(1, denom - 1);
+  
+  // Pick num such that num * 2 != denom to guarantee that the shaded part != unshaded part
+  let num = getRandomInt(1, denom - 1);
+  if (num * 2 === denom) {
+    num = num > 1 ? num - 1 : num + 1;
+  }
+  
   const color = ['#6366f1', '#ec4899', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'][getRandomInt(0, 5)];
-
   const questionType = getRandomInt(1, 5);
 
   if (questionType === 4) {
@@ -52,12 +97,12 @@ function generateWholePartExercise(difficulty: 1 | 2 | 3): Exercise {
     const wrongInverted = `${denom}/${num}`;
     const wrongDenom = `${num}/${denom + 1}`;
 
-    const options: ExerciseChoiceOption[] = shuffleArray([
+    const rawOptions: ExerciseChoiceOption[] = [
       { id: 'opt-1', label: correctLabel, isCorrect: true },
       { id: 'opt-2', label: wrongUncolored, isCorrect: false, misconceptionExplanation: `${wrongUncolored} מייצג את החלק הלבן שאינו צבוע!` },
       { id: 'opt-3', label: wrongInverted, isCorrect: false, misconceptionExplanation: 'המונה (הצבוע) צריך להיות למעלה, והמכנה (כל החלקים) למטה.' },
       { id: 'opt-4', label: wrongDenom, isCorrect: false, misconceptionExplanation: `ספור שוב את סך כל החלקים: יש ${denom} חלקים ולא ${denom + 1}.` }
-    ]);
+    ];
 
     return {
       id,
@@ -79,7 +124,7 @@ function generateWholePartExercise(difficulty: 1 | 2 | 3): Exercise {
       visualType: 'bar',
       visualProps: { totalParts: denom, coloredParts: num, color },
       answerType: 'choice',
-      options,
+      options: sanitizeExerciseOptions(rawOptions),
       gentleWrongFeedback: {
         default: `ספור היטב את סך כל החלקים השווים בצורה (המכנה), ולאחר מכן כמה מהם צבועים (המונה).`
       }
@@ -88,14 +133,18 @@ function generateWholePartExercise(difficulty: 1 | 2 | 3): Exercise {
     // Circle pizza story
     const foods = ['פיצה משפחתית', 'עוגת יום הולדת עגולה', 'פשטידה עגולה'];
     const food = foods[getRandomInt(0, foods.length - 1)];
-    const correctRemaining = `${denom - num}/${denom}`;
+    const remaining = denom - num;
+    const correctRemaining = `${remaining}/${denom}`;
+    const wrongEaten = `${num}/${denom}`;
+    const wrongDenom = `${remaining}/${denom + 1}`;
+    const wrongInverted = `${denom}/${remaining}`;
 
-    const options: ExerciseChoiceOption[] = shuffleArray([
+    const rawOptions: ExerciseChoiceOption[] = [
       { id: 'opt-1', label: correctRemaining, isCorrect: true },
-      { id: 'opt-2', label: `${num}/${denom}`, isCorrect: false, misconceptionExplanation: `זהו החלק שנאכל, אך השאלה היא איזה חלק נשאר!` },
-      { id: 'opt-3', label: `${denom - num}/${denom + 1}`, isCorrect: false, misconceptionExplanation: `המכנה לא משתנה: הפיצה חולקה ל-${denom} חלקים שווים.` },
-      { id: 'opt-4', label: `${denom}/${denom - num}`, isCorrect: false, misconceptionExplanation: `השבר קטן מ-1, המונה חייב להיות קטן מהמכנה.` }
-    ]);
+      { id: 'opt-2', label: wrongEaten, isCorrect: false, misconceptionExplanation: `זהו החלק שנאכל (${wrongEaten}), אך השאלה היא איזה חלק נשאר!` },
+      { id: 'opt-3', label: wrongDenom, isCorrect: false, misconceptionExplanation: `המכנה לא משתנה: הפיצה חולקה ל-${denom} חלקים שווים.` },
+      { id: 'opt-4', label: wrongInverted, isCorrect: false, misconceptionExplanation: `השבר קטן מ-1, המונה חייב להיות קטן מהמכנה.` }
+    ];
 
     return {
       id,
@@ -108,27 +157,27 @@ function generateWholePartExercise(difficulty: 1 | 2 | 3): Exercise {
         `רמז 1: שלם אחד מלא מורכב מ-${denom}/${denom}.`,
         `רמז 2: אם היו ${denom} חלקים ואכלו ${num}, כמה חלקים נותרו מתוך ה-${denom}?`
       ],
-      extraExplanation: `שלם מלא הוא ${denom}/${denom}. מחסירים ${num}/${denom} ומקבלים ${denom - num}/${denom}.`,
+      extraExplanation: `שלם מלא הוא ${denom}/${denom}. מחסירים ${num}/${denom} ומקבלים ${remaining}/${denom}.`,
       exampleDemonstration: {
-        text: `מתוך ${denom} חלקים לקחו ${num}, נשארו ${denom - num}.`,
+        text: `מתוך ${denom} חלקים לקחו ${num}, נשארו ${remaining}.`,
         visualType: 'circle',
         visualProps: { totalParts: denom, coloredParts: num, color }
       },
       visualType: 'circle',
-      visualProps: { totalParts: denom, coloredParts: denom - num, color },
+      visualProps: { totalParts: denom, coloredParts: remaining, color },
       answerType: 'choice',
-      options,
+      options: sanitizeExerciseOptions(rawOptions),
       gentleWrongFeedback: {
         default: `חשוב: כמה חתיכות נשארו בצלחת מתוך סך כל ${denom} החתיכות שהיו בהתחלה?`
       }
     };
   } else {
     // Understanding denominator role
-    const options: ExerciseChoiceOption[] = shuffleArray([
+    const rawOptions: ExerciseChoiceOption[] = [
       { id: 'opt-1', label: `לכמה חלקים שווים מחולק השלם כולו`, isCorrect: true },
       { id: 'opt-2', label: `כמה חלקים לקחנו או צבענו`, isCorrect: false, misconceptionExplanation: `זהו התפקיד של המונה (המספר למעלה)!` },
       { id: 'opt-3', label: `כמה שלמים יש לנו בסך הכל`, isCorrect: false, misconceptionExplanation: `המכנה מתאר חלוקה של שלם אחד, לא כמות שלמים.` }
-    ]);
+    ];
 
     return {
       id,
@@ -150,7 +199,7 @@ function generateWholePartExercise(difficulty: 1 | 2 | 3): Exercise {
       visualType: 'bar',
       visualProps: { totalParts: denom, coloredParts: num, color: '#3b82f6' },
       answerType: 'choice',
-      options,
+      options: sanitizeExerciseOptions(rawOptions),
       gentleWrongFeedback: {
         default: `זכור: המכנה יושב למטה ומציין לכמה חלקים שווים נחתך השלם!`
       }
@@ -172,14 +221,15 @@ function generateNumberLineExercise(difficulty: 1 | 2 | 3): Exercise {
   if (isIntervalQuestion) {
     const correctLabel = `${num}/${denom}`;
     const wrongCountingLines = `${num}/${denom + 1}`;
-    const wrongOffset = `${Math.min(denom - 1, num + 1)}/${denom}`;
+    const wrongOffset = num === denom - 1 ? `${num - 1}/${denom}` : `${num + 1}/${denom}`;
+    const wrongInverted = `${denom}/${num}`;
 
-    const options: ExerciseChoiceOption[] = shuffleArray([
+    const rawOptions: ExerciseChoiceOption[] = [
       { id: 'opt-1', label: correctLabel, isCorrect: true },
       { id: 'opt-2', label: wrongCountingLines, isCorrect: false, misconceptionExplanation: `טעות נפוצה! ספרת את הקווים עצמם במקום לספור את המרווחים (הקפיצות) בין 0 ל-1.` },
       { id: 'opt-3', label: wrongOffset, isCorrect: false, misconceptionExplanation: `ספור שוב את מספר הצעדים מ-0 עד לנקודה המסומנת.` },
-      { id: 'opt-4', label: `${denom}/${num}`, isCorrect: false, misconceptionExplanation: `הנקודה נמצאת בין 0 ל-1, לכן המונה חייב להיות קטן מהמכנה.` }
-    ]);
+      { id: 'opt-4', label: wrongInverted, isCorrect: false, misconceptionExplanation: `הנקודה נמצאת בין 0 ל-1, לכן המונה חייב להיות קטן מהמכנה.` }
+    ];
 
     return {
       id,
@@ -201,7 +251,7 @@ function generateNumberLineExercise(difficulty: 1 | 2 | 3): Exercise {
       visualType: 'number-line',
       visualProps: { min: 0, max: 1, divisions: denom, targetIndex: num, dotColor: '#8b5cf6' },
       answerType: 'choice',
-      options,
+      options: sanitizeExerciseOptions(rawOptions),
       gentleWrongFeedback: {
         default: `זכור את כלל הזהב של ישר המספרים: סופרים קפיצות/רווחים מ-0, ולא סופרים את הקווים!`
       }
@@ -214,11 +264,11 @@ function generateNumberLineExercise(difficulty: 1 | 2 | 3): Exercise {
 
     const correct = isCloserToZero ? 'קרוב יותר ל-0' : isCloserToOne ? 'קרוב יותר ל-1' : 'קרוב בדיוק לחצי (1/2)';
 
-    const options: ExerciseChoiceOption[] = shuffleArray([
+    const rawOptions: ExerciseChoiceOption[] = [
       { id: 'opt-1', label: correct, isCorrect: true },
       { id: 'opt-2', label: isCloserToZero ? 'קרוב יותר ל-1' : 'קרוב יותר ל-0', isCorrect: false, misconceptionExplanation: `הבט במיקום הנקודה בישר המספרים.` },
       { id: 'opt-3', label: isNearHalf ? 'קרוב יותר ל-1' : 'קרוב בדיוק לחצי (1/2)', isCorrect: false, misconceptionExplanation: `בדוק האם השבר עבר את החצי או עדיין לא.` }
-    ]);
+    ];
 
     return {
       id,
@@ -240,7 +290,7 @@ function generateNumberLineExercise(difficulty: 1 | 2 | 3): Exercise {
       visualType: 'number-line',
       visualProps: { min: 0, max: 1, divisions: denom, targetIndex: num, dotColor: '#3b82f6' },
       answerType: 'choice',
-      options,
+      options: sanitizeExerciseOptions(rawOptions),
       gentleWrongFeedback: {
         default: `השתמש בישר המספרים כדי לראות את המרחק לעוגנים 0, 1/2 ו-1.`
       }
@@ -253,14 +303,18 @@ function generateNumberLineExercise(difficulty: 1 | 2 | 3): Exercise {
  */
 function generateMixedNumbersExercise(difficulty: 1 | 2 | 3): Exercise {
   const id = `gen-mix-${Date.now()}-${getRandomInt(100, 999)}`;
-  const denom = difficulty === 1 ? [2, 3, 4][getRandomInt(0, 2)] : [3, 4, 5, 6][getRandomInt(0, 3)];
+  const denom = difficulty === 1 ? [3, 4, 5][getRandomInt(0, 2)] : [3, 4, 5, 6][getRandomInt(0, 3)];
   const whole = getRandomInt(1, 3);
-  const remainder = getRandomInt(1, denom - 1);
+  
+  let remainder = getRandomInt(1, denom - 1);
+  if (remainder * 2 === denom) {
+    remainder = remainder > 1 ? remainder - 1 : remainder + 1;
+  }
+
   const totalPieces = whole * denom + remainder;
 
   const branch = getRandomInt(1, 3);
   if (branch === 3) {
-    // Direct comparison (> / < / =) between mixed numbers / improper fractions from the book!
     return generateBookComparisonExercise(difficulty);
   }
 
@@ -273,12 +327,12 @@ function generateMixedNumbersExercise(difficulty: 1 | 2 | 3): Exercise {
     const wrongRemainder = `${whole} ו-${denom - remainder}/${denom}`;
     const wrongStayedImproper = `1 ו-${totalPieces - denom}/${denom}`;
 
-    const options: ExerciseChoiceOption[] = shuffleArray([
+    const rawOptions: ExerciseChoiceOption[] = [
       { id: 'opt-1', label: correctLabel, isCorrect: true },
       { id: 'opt-2', label: wrongWhole, isCorrect: false, misconceptionExplanation: `כדי לקבל ${whole + 1} שלמים היינו צריכים ${(whole + 1) * denom} חלקים, ויש רק ${totalPieces}!` },
       { id: 'opt-3', label: wrongRemainder, isCorrect: false, misconceptionExplanation: `השארית היא ${remainder} ולא ${denom - remainder}.` },
       { id: 'opt-4', label: wrongStayedImproper, isCorrect: false, misconceptionExplanation: `במספר מעורב שבר השארית חייב להיות שבר אמיתי (קטן מ-1). אפשר להוציא עוד שלמים!` }
-    ]);
+    ];
 
     return {
       id,
@@ -293,14 +347,14 @@ function generateMixedNumbersExercise(difficulty: 1 | 2 | 3): Exercise {
       ],
       extraExplanation: `כל ${denom} חלקים יוצרים שלם 1. ${denom} נכנס ב-${totalPieces} בדיוק ${whole} פעמים (${whole * denom}), ונשארת שארית של ${remainder} חלקים. לכן: ${whole} ו-${remainder}/${denom}.`,
       exampleDemonstration: {
-        text: `${totalPieces}/${denom} הם ${whole} שלמים שלמים ועוד ${remainder}/${denom}.`,
+        text: `${totalPieces}/${denom} הם ${whole} שלמים ועוד ${remainder}/${denom}.`,
         visualType: 'mixed-bars',
         visualProps: { wholeCount: whole, remainder, denom, color: '#f59e0b' }
       },
       visualType: 'mixed-bars',
       visualProps: { wholeCount: whole, remainder, denom, color: '#f59e0b' },
       answerType: 'choice',
-      options,
+      options: sanitizeExerciseOptions(rawOptions),
       gentleWrongFeedback: {
         default: `חלק את המונה (${totalPieces}) במכנה (${denom}): התוצאה היא השלמים, והשארית היא המונה החדש.`
       }
@@ -309,14 +363,15 @@ function generateMixedNumbersExercise(difficulty: 1 | 2 | 3): Exercise {
     // From mixed to improper: e.g. 2 1/4 -> 9/4
     const correctImproper = `${totalPieces}/${denom}`;
     const wrongAdd = `${whole + remainder}/${denom}`;
-    const wrongDenom = `${totalPieces}/${denom * 2}`;
+    const wrongDenom = `${totalPieces}/${denom + 1}`;
+    const wrongOffset = `${totalPieces + 1}/${denom}`;
 
-    const options: ExerciseChoiceOption[] = shuffleArray([
+    const rawOptions: ExerciseChoiceOption[] = [
       { id: 'opt-1', label: correctImproper, isCorrect: true },
       { id: 'opt-2', label: wrongAdd, isCorrect: false, misconceptionExplanation: `טעות! צריך לכפול את השלמים במכנה (${whole} כפול ${denom} = ${whole * denom}) ולא רק לחבר ${whole} + ${remainder}!` },
       { id: 'opt-3', label: wrongDenom, isCorrect: false, misconceptionExplanation: `המכנה לעולם לא משתנה: הוא נשאר ${denom}!` },
-      { id: 'opt-4', label: `${totalPieces - 1}/${denom}`, isCorrect: false, misconceptionExplanation: `בדוק שוב את החישוב: ${whole} כפול ${denom} שווה ${whole * denom}, ועוד ${remainder} שווה ${totalPieces}.` }
-    ]);
+      { id: 'opt-4', label: wrongOffset, isCorrect: false, misconceptionExplanation: `בדוק שוב את החישוב: ${whole} כפול ${denom} שווה ${whole * denom}, ועוד ${remainder} שווה ${totalPieces}.` }
+    ];
 
     return {
       id,
@@ -338,7 +393,7 @@ function generateMixedNumbersExercise(difficulty: 1 | 2 | 3): Exercise {
       visualType: 'mixed-bars',
       visualProps: { wholeCount: whole, remainder, denom, color: '#10b981' },
       answerType: 'choice',
-      options,
+      options: sanitizeExerciseOptions(rawOptions),
       gentleWrongFeedback: {
         default: `כפול שלם במכנה והוסף את המונה. המכנה נשאר ללא שינוי!`
       }
@@ -363,14 +418,15 @@ function generateSameDenomExercise(difficulty: 1 | 2 | 3): Exercise {
 
     const correctLabel = `${sum}/${denom}`;
     const wrongAddedDenoms = `${sum}/${denom * 2}`;
-    const wrongMultiplied = `${num1 * num2}/${denom}`;
+    const wrongMultiplied = num1 * num2 !== sum && num1 * num2 < denom ? `${num1 * num2}/${denom}` : `${sum === 1 ? 2 : sum - 1}/${denom}`;
+    const wrongOffset = `${sum + 1}/${denom}`;
 
-    const options: ExerciseChoiceOption[] = shuffleArray([
+    const rawOptions: ExerciseChoiceOption[] = [
       { id: 'opt-1', label: correctLabel, isCorrect: true },
       { id: 'opt-2', label: wrongAddedDenoms, isCorrect: false, misconceptionExplanation: `אזהרה: לעולם לא מחברים את המכנים! שומרים על המכנה ${denom} ומחברים רק את המונים.` },
       { id: 'opt-3', label: wrongMultiplied, isCorrect: false, misconceptionExplanation: `זהו תרגיל חיבור (+), לא תרגיל כפל!` },
-      { id: 'opt-4', label: `${sum + 1}/${denom}`, isCorrect: false, misconceptionExplanation: `בדוק שוב: ${num1} ועוד ${num2} שווה ${sum}.` }
-    ]);
+      { id: 'opt-4', label: wrongOffset, isCorrect: false, misconceptionExplanation: `בדוק שוב: ${num1} ועוד ${num2} שווה ${sum}.` }
+    ];
 
     return {
       id,
@@ -392,27 +448,28 @@ function generateSameDenomExercise(difficulty: 1 | 2 | 3): Exercise {
       visualType: 'bar',
       visualProps: { totalParts: denom, coloredParts: sum, color: '#ec4899' },
       answerType: 'choice',
-      options,
+      options: sanitizeExerciseOptions(rawOptions),
       gentleWrongFeedback: {
         default: `זכור: מחברים רק את המונים (${num1}+${num2}), והמכנה נשאר ${denom} בדיוק כפי שהיה!`
       }
     };
   } else {
     // Subtraction
-    const num1 = getRandomInt(3, denom - 1);
+    const num1 = getRandomInt(2, denom - 1);
     const num2 = getRandomInt(1, num1 - 1);
     const diff = num1 - num2;
 
     const correctLabel = `${diff}/${denom}`;
-    const wrongZeroDenom = `${diff}/0`;
     const wrongAdded = `${num1 + num2}/${denom}`;
+    const wrongDenom = `${diff}/${denom * 2}`;
+    const wrongOffset = diff === 1 ? `${diff + 1}/${denom}` : `${diff - 1}/${denom}`;
 
-    const options: ExerciseChoiceOption[] = shuffleArray([
+    const rawOptions: ExerciseChoiceOption[] = [
       { id: 'opt-1', label: correctLabel, isCorrect: true },
       { id: 'opt-2', label: wrongAdded, isCorrect: false, misconceptionExplanation: `זהו תרגיל חיסור (-), לא תרגיל חיבור!` },
-      { id: 'opt-3', label: `${diff}/${denom * 2}`, isCorrect: false, misconceptionExplanation: `המכנה אינו משתנה בחיסור שברים בעלי מכנה שווה.` },
-      { id: 'opt-4', label: `${Math.max(1, diff - 1)}/${denom}`, isCorrect: false, misconceptionExplanation: `בדוק שוב את החיסור: ${num1} פחות ${num2} שווה ${diff}.` }
-    ]);
+      { id: 'opt-3', label: wrongDenom, isCorrect: false, misconceptionExplanation: `המכנה אינו משתנה בחיסור שברים בעלי מכנה שווה.` },
+      { id: 'opt-4', label: wrongOffset, isCorrect: false, misconceptionExplanation: `בדוק שוב את החיסור: ${num1} פחות ${num2} שווה ${diff}.` }
+    ];
 
     return {
       id,
@@ -434,7 +491,7 @@ function generateSameDenomExercise(difficulty: 1 | 2 | 3): Exercise {
       visualType: 'bar',
       visualProps: { totalParts: denom, coloredParts: diff, color: '#f59e0b' },
       answerType: 'choice',
-      options,
+      options: sanitizeExerciseOptions(rawOptions),
       gentleWrongFeedback: {
         default: `בחיסור שברים עם מכנה זהה מחסירים רק את המונים (${num1}-${num2}), והמכנה נשאר ${denom}!`
       }
@@ -449,21 +506,27 @@ function generateFractionalAmountExercise(difficulty: 1 | 2 | 3): Exercise {
   const id = `gen-fa-${Date.now()}-${getRandomInt(100, 999)}`;
   const denoms = [4, 5, 6, 7, 8, 9, 10];
   const denom = denoms[getRandomInt(0, denoms.length - 1)];
-  const num = getRandomInt(1, denom - 1);
+  
+  let num = getRandomInt(1, denom - 1);
+  if (num * 2 === denom) {
+    num = num > 1 ? num - 1 : num + 1;
+  }
+  
   const whole = difficulty === 1 ? 1 : difficulty === 2 ? 1 : 2;
 
   if (whole === 1) {
     const diff = denom - num;
     const correctLabel = `${diff}/${denom}`;
-    const wrongDenom = `${diff}/${denom - 1}`;
+    const wrongEaten = `${num}/${denom}`;
     const wrongSubtractNumeratorOnly = `${denom - 1}/${denom}`;
+    const wrongOffset = diff === denom - 1 ? `${diff - 1}/${denom}` : `${diff + 1}/${denom}`;
 
-    const options: ExerciseChoiceOption[] = shuffleArray([
+    const rawOptions: ExerciseChoiceOption[] = [
       { id: 'opt-1', label: correctLabel, isCorrect: true },
-      { id: 'opt-2', label: `${num}/${denom}`, isCorrect: false, misconceptionExplanation: `זהו החלק שחיסרנו, כמה נותר מהשלם?` },
+      { id: 'opt-2', label: wrongEaten, isCorrect: false, misconceptionExplanation: `זהו החלק שחיסרנו (${wrongEaten}), כמה נותר מהשלם?` },
       { id: 'opt-3', label: wrongSubtractNumeratorOnly, isCorrect: false, misconceptionExplanation: `זכור לפרוט את השלם ל-${denom}/${denom}!` },
-      { id: 'opt-4', label: `${diff + 1}/${denom}`, isCorrect: false, misconceptionExplanation: `בדוק שוב: ${denom} פחות ${num} שווה ${diff}.` }
-    ]);
+      { id: 'opt-4', label: wrongOffset, isCorrect: false, misconceptionExplanation: `בדוק שוב: ${denom} פחות ${num} שווה ${diff}.` }
+    ];
 
     return {
       id,
@@ -476,7 +539,7 @@ function generateFractionalAmountExercise(difficulty: 1 | 2 | 3): Exercise {
         `רמז 1: פשוט מאוד לפרוט 1 שלם לשבר ששווה לו! 1 שלם = ${denom}/${denom}.`,
         `רמז 2: עכשיו פתור: ${denom}/${denom} פחות ${num}/${denom}.`
       ],
-      extraExplanation: `הופכים את המספר 1 ל-${denom}/${denom}. כעת מחסרים: ${denom}/${denom} - ${num}/${denom} = ${diff}/${denom}.`,
+      extraExplanation: `הופכים את המספר 1 ל-${denom}/${denom}. כעת מחסירים: ${denom}/${denom} - ${num}/${denom} = ${diff}/${denom}.`,
       exampleDemonstration: {
         text: `1 שלם הוא שוקולד שלם של ${denom}/${denom}. אם אכלנו ${num}/${denom}, נשארו ${diff}/${denom}.`,
         visualType: 'bar',
@@ -485,7 +548,7 @@ function generateFractionalAmountExercise(difficulty: 1 | 2 | 3): Exercise {
       visualType: 'bar',
       visualProps: { totalParts: denom, coloredParts: diff, color: '#3b82f6' },
       answerType: 'choice',
-      options,
+      options: sanitizeExerciseOptions(rawOptions),
       gentleWrongFeedback: {
         default: `פרוט תחילה את השלם (1) לשבר עם מכנה ${denom} (${denom}/${denom}), ואז חסר את המונים.`
       }
@@ -495,13 +558,15 @@ function generateFractionalAmountExercise(difficulty: 1 | 2 | 3): Exercise {
     const diff = denom - num;
     const correctLabel = `1 ו-${diff}/${denom}`;
     const wrongLabel = `2 ו-${diff}/${denom}`;
+    const wrongNoWhole = `${diff}/${denom}`;
+    const wrongEaten = `1 ו-${num}/${denom}`;
 
-    const options: ExerciseChoiceOption[] = shuffleArray([
+    const rawOptions: ExerciseChoiceOption[] = [
       { id: 'opt-1', label: correctLabel, isCorrect: true },
       { id: 'opt-2', label: wrongLabel, isCorrect: false, misconceptionExplanation: `הורדנו שבר מתוך ה-2 שלמים, לכן נשאר רק שלם 1 מלא ועוד חלק!` },
-      { id: 'opt-3', label: `${diff}/${denom}`, isCorrect: false, misconceptionExplanation: `התחלנו מ-2 שלמים, לכן חייב להישאר שלם 1 שלם!` },
-      { id: 'opt-4', label: `1 ו-${num}/${denom}`, isCorrect: false, misconceptionExplanation: `בדוק שוב את החיסור של השלם שנפרט: ${denom} פחות ${num} שווה ${diff}.` }
-    ]);
+      { id: 'opt-3', label: wrongNoWhole, isCorrect: false, misconceptionExplanation: `התחלנו מ-2 שלמים, לכן חייב להישאר שלם 1 שלם!` },
+      { id: 'opt-4', label: wrongEaten, isCorrect: false, misconceptionExplanation: `בדוק שוב את החיסור של השלם שנפרט: ${denom} פחות ${num} שווה ${diff}.` }
+    ];
 
     return {
       id,
@@ -523,7 +588,7 @@ function generateFractionalAmountExercise(difficulty: 1 | 2 | 3): Exercise {
       visualType: 'mixed-bars',
       visualProps: { wholeCount: 1, remainder: diff, denom, color: '#10b981' },
       answerType: 'choice',
-      options,
+      options: sanitizeExerciseOptions(rawOptions),
       gentleWrongFeedback: {
         default: `פרוט רק שלם אחד מתוך ה-2: שלם אחד יישאר, והשני יהפוך לשבר (${denom}/${denom}).`
       }
@@ -540,8 +605,14 @@ function generatePartOfQuantityExercise(difficulty: 1 | 2 | 3): Exercise {
   const denom = denoms[getRandomInt(0, denoms.length - 1)];
   const itemsPerGroup = getRandomInt(3, 8);
   const total = denom * itemsPerGroup;
-  const num = difficulty === 1 ? 1 : getRandomInt(2, denom - 1);
+  
+  let num = difficulty === 1 ? 1 : getRandomInt(2, denom - 1);
+  if (num * 2 === denom) {
+    num = num > 1 ? num - 1 : num + 1;
+  }
+  
   const result = (total / denom) * num;
+  const remaining = total - result;
 
   const itemNames = [
     { name: 'תותים מתוקים', singular: 'תות', verb: 'בקערה' },
@@ -554,15 +625,15 @@ function generatePartOfQuantityExercise(difficulty: 1 | 2 | 3): Exercise {
 
   const correctLabel = `${result} ${item.name}`;
   const wrongOnlyUnit = `${total / denom} ${item.name}`;
-  const wrongMultipliedTotal = `${total * denom}`;
+  const wrongRemaining = `${remaining} ${item.name}`;
   const wrongOffset = `${result + itemsPerGroup} ${item.name}`;
 
-  const options: ExerciseChoiceOption[] = shuffleArray([
+  const rawOptions: ExerciseChoiceOption[] = [
     { id: 'opt-1', label: correctLabel, isCorrect: true },
-    { id: 'opt-2', label: num > 1 ? wrongOnlyUnit : wrongOffset, isCorrect: false, misconceptionExplanation: num > 1 ? `זהו רק 1/${denom} מהכמות, אך עליך למצוא ${num}/${denom} (לכפול ב-${num})!` : `בדוק שוב את החילוק.` },
-    { id: 'opt-3', label: `${total - result} ${item.name}`, isCorrect: false, misconceptionExplanation: `זהו החלק שנשאר, אך השאלה שאלה על החלק שנלקח!` },
+    { id: 'opt-2', label: num > 1 ? wrongOnlyUnit : `${result + itemsPerGroup * 2} ${item.name}`, isCorrect: false, misconceptionExplanation: num > 1 ? `זהו רק 1/${denom} מהכמות, אך עליך למצוא ${num}/${denom} (לכפול ב-${num})!` : `בדוק שוב את החילוק.` },
+    { id: 'opt-3', label: wrongRemaining, isCorrect: false, misconceptionExplanation: `זהו החלק שנשאר (${wrongRemaining}), אך השאלה שאלה על החלק שנלקח!` },
     { id: 'opt-4', label: wrongOffset, isCorrect: false, misconceptionExplanation: `בדוק שוב את החישוב: ${total} לחלק ל-${denom} שווה ${total / denom}, וכפול ${num} שווה ${result}.` }
-  ]);
+  ];
 
   return {
     id,
@@ -596,7 +667,7 @@ function generatePartOfQuantityExercise(difficulty: 1 | 2 | 3): Exercise {
       itemName: item.name
     },
     answerType: 'choice',
-    options,
+    options: sanitizeExerciseOptions(rawOptions),
     gentleWrongFeedback: {
       default: `חלק את הכמות הכוללת במכנה (${denom}), ואת התוצאה כפול במונה (${num}).`
     }
@@ -619,12 +690,12 @@ function generateDecimalsExercise(difficulty: 1 | 2 | 3): Exercise {
     const wrongDivide = Number((val / factor).toFixed(3));
     const wrongFactor = factor === 10 ? Number((val * 100).toFixed(2)) : Number((val * 10).toFixed(2));
 
-    const options: ExerciseChoiceOption[] = shuffleArray([
+    const rawOptions: ExerciseChoiceOption[] = [
       { id: 'opt-1', label: `${correctVal}`, isCorrect: true },
       { id: 'opt-2', label: `${wrongDivide}`, isCorrect: false, misconceptionExplanation: `בכפל המספר גדל והנקודה זזה ימינה, לא שמאלה!` },
       { id: 'opt-3', label: `${wrongFactor}`, isCorrect: false, misconceptionExplanation: factor === 10 ? `כפלת ב-100 (שני צעדים) במקום ב-10 (צעד אחד)!` : `כפלת ב-10 (צעד אחד) במקום ב-100 (שני צעדים)!` },
       { id: 'opt-4', label: `${val}`, isCorrect: false, misconceptionExplanation: `כפל ב-${factor} משנה את מיקום הנקודה העשרונית!` }
-    ]);
+    ];
 
     return {
       id,
@@ -646,7 +717,7 @@ function generateDecimalsExercise(difficulty: 1 | 2 | 3): Exercise {
       visualType: 'decimal-table',
       visualProps: { before: val, op: 'mult', factor, after: correctVal },
       answerType: 'choice',
-      options,
+      options: sanitizeExerciseOptions(rawOptions),
       gentleWrongFeedback: {
         default: `זכור: כפל ב-10 מזיז נקודה צעד 1 ימינה. כפל ב-100 מזיז נקודה 2 צעדים ימינה.`
       }
@@ -658,12 +729,12 @@ function generateDecimalsExercise(difficulty: 1 | 2 | 3): Exercise {
     const wrongMult = intVal * factor;
     const wrongFactor = factor === 10 ? Number((intVal / 100).toFixed(2)) : Number((intVal / 10).toFixed(2));
 
-    const options: ExerciseChoiceOption[] = shuffleArray([
+    const rawOptions: ExerciseChoiceOption[] = [
       { id: 'opt-1', label: `${correctVal}`, isCorrect: true },
       { id: 'opt-2', label: `${wrongMult}`, isCorrect: false, misconceptionExplanation: `זהו תרגיל חילוק (:) ולכן המספר קטן, לא גדל!` },
       { id: 'opt-3', label: `${wrongFactor}`, isCorrect: false, misconceptionExplanation: factor === 10 ? `חילקת ב-100 במקום ב-10.` : `חילקת ב-10 במקום ב-100.` },
       { id: 'opt-4', label: `0.${intVal}`, isCorrect: false, misconceptionExplanation: `ספור בדיוק כמה מקומות זזה הנקודה העשרונית שמאלה.` }
-    ]);
+    ];
 
     return {
       id,
@@ -685,7 +756,7 @@ function generateDecimalsExercise(difficulty: 1 | 2 | 3): Exercise {
       visualType: 'decimal-table',
       visualProps: { before: intVal, op: 'div', factor, after: correctVal },
       answerType: 'choice',
-      options,
+      options: sanitizeExerciseOptions(rawOptions),
       gentleWrongFeedback: {
         default: `בחילוק ב-10 מזיזים נקודה צעד אחד שמאלה. בחילוק ב-100 מזיזים 2 צעדים שמאלה.`
       }
@@ -708,7 +779,7 @@ function generateSummaryReviewExercise(difficulty: 1 | 2 | 3): Exercise {
 
 /**
  * Master function: get a list of diverse, fresh exercises for a topic and difficulty.
- * Guarantees zero repetitive questions in a session!
+ * Guarantees zero repetitive questions and 100% unique options in a session!
  */
 export function getFreshExercisesForTopic(
   topicId: TopicId,
@@ -722,17 +793,19 @@ export function getFreshExercisesForTopic(
   );
 
   const matchedStatic = staticPool.filter((ex) => ex.difficulty === currentLevel);
-  const otherStatic = staticPool.filter((ex) => ex.difficulty !== currentLevel);
-
   const selected: Exercise[] = [];
 
-  // Take up to 2 static exercises from matching level to preserve the curated hand-crafted questions
+  // Take up to 2 static exercises from matching level to preserve curated questions
   if (matchedStatic.length > 0) {
     const shuffled = shuffleArray(matchedStatic);
-    selected.push(...shuffled.slice(0, Math.min(2, matchedStatic.length)));
+    const chosenStatic = shuffled.slice(0, Math.min(2, matchedStatic.length)).map((ex) => ({
+      ...ex,
+      options: sanitizeExerciseOptions(ex.options)
+    }));
+    selected.push(...chosenStatic);
   }
 
-  // 2. Fill the rest of the batch dynamically using the generators so every session is 100% unique!
+  // 2. Fill the rest of the batch dynamically using the generators
   while (selected.length < count) {
     let fresh: Exercise;
     switch (topicId) {
@@ -762,6 +835,10 @@ export function getFreshExercisesForTopic(
         fresh = generateSummaryReviewExercise(currentLevel);
         break;
     }
+    
+    if (fresh.options) {
+      fresh.options = sanitizeExerciseOptions(fresh.options);
+    }
     selected.push(fresh);
   }
 
@@ -772,23 +849,37 @@ export function getFreshExercisesForTopic(
  * Generates a single exercise with specific difficulty for adaptive challenge mode.
  */
 export function generateSingleExercise(topicId: TopicId, difficulty: 1 | 2 | 3): Exercise {
+  let ex: Exercise;
   switch (topicId) {
     case 'whole-part':
-      return generateWholePartExercise(difficulty);
+      ex = generateWholePartExercise(difficulty);
+      break;
     case 'number-line':
-      return generateNumberLineExercise(difficulty);
+      ex = generateNumberLineExercise(difficulty);
+      break;
     case 'mixed-numbers':
-      return generateMixedNumbersExercise(difficulty);
+      ex = generateMixedNumbersExercise(difficulty);
+      break;
     case 'same-denom':
-      return generateSameDenomExercise(difficulty);
+      ex = generateSameDenomExercise(difficulty);
+      break;
     case 'fractional-amount':
-      return generateFractionalAmountExercise(difficulty);
+      ex = generateFractionalAmountExercise(difficulty);
+      break;
     case 'part-of-quantity':
-      return generatePartOfQuantityExercise(difficulty);
+      ex = generatePartOfQuantityExercise(difficulty);
+      break;
     case 'decimals-mult-div':
-      return generateDecimalsExercise(difficulty);
+      ex = generateDecimalsExercise(difficulty);
+      break;
     case 'summary-review':
     default:
-      return generateSummaryReviewExercise(difficulty);
+      ex = generateSummaryReviewExercise(difficulty);
+      break;
   }
+
+  if (ex.options) {
+    ex.options = sanitizeExerciseOptions(ex.options);
+  }
+  return ex;
 }

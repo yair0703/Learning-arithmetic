@@ -7,6 +7,9 @@ interface QuantityGroupProps {
   selectedGroups?: number; // numerator
   itemName?: string;
   itemIcon?: 'star' | 'circle' | 'apple';
+  showStepCalculation?: boolean;
+  showGroupFraction?: boolean;
+  showCountPerGroup?: boolean;
   label?: string;
 }
 
@@ -16,6 +19,9 @@ export const QuantityGroupVisualizer: React.FC<QuantityGroupProps> = ({
   itemsPerGroup = 3,
   selectedGroups = 3,
   itemName = 'עצמים',
+  showStepCalculation = false,
+  showGroupFraction = false,
+  showCountPerGroup = false,
   label
 }) => {
   const resultCount = selectedGroups * itemsPerGroup;
@@ -42,7 +48,9 @@ export const QuantityGroupVisualizer: React.FC<QuantityGroupProps> = ({
                   <span className={`px-2 py-0.5 rounded-full ${isSelected ? 'bg-sky-500 text-white' : 'bg-slate-200 text-slate-600'}`}>
                     קבוצה {gIdx + 1}
                   </span>
-                  <span className="text-slate-500 font-mono">1/{groups}</span>
+                  {showGroupFraction && (
+                    <span className="text-slate-500 font-mono">1/{groups}</span>
+                  )}
                 </div>
 
                 {/* Items in this group */}
@@ -62,31 +70,35 @@ export const QuantityGroupVisualizer: React.FC<QuantityGroupProps> = ({
                   ))}
                 </div>
 
-                <span className="text-[11px] text-slate-600 font-medium">
-                  {itemsPerGroup} {itemName}
-                </span>
+                {showCountPerGroup && (
+                  <span className="text-[11px] text-slate-600 font-medium">
+                    {itemsPerGroup} {itemName}
+                  </span>
+                )}
               </div>
             );
           })}
         </div>
       </div>
 
-      {/* Arithmetic calculation step explanation */}
-      <div className="w-full max-w-2xl bg-gradient-to-r from-sky-50 to-blue-50 border border-sky-200 p-3 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-3 text-xs md:text-sm text-slate-700">
-        <div className="flex items-center gap-2">
-          <span className="w-5 h-5 rounded-full bg-sky-600 text-white font-bold text-xs flex items-center justify-center">1</span>
-          <span>
-            חילקנו {totalItems} {itemName} ל-{groups} קבוצות שוות: <strong>{itemsPerGroup}</strong> בכל קבוצה.
-          </span>
-        </div>
+      {/* Arithmetic calculation step explanation - only shown if explicitly enabled */}
+      {showStepCalculation && (
+        <div className="w-full max-w-2xl bg-gradient-to-r from-sky-50 to-blue-50 border border-sky-200 p-3 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-3 text-xs md:text-sm text-slate-700">
+          <div className="flex items-center gap-2">
+            <span className="w-5 h-5 rounded-full bg-sky-600 text-white font-bold text-xs flex items-center justify-center">1</span>
+            <span>
+              חילקנו {totalItems} {itemName} ל-{groups} קבוצות שוות: <strong>{itemsPerGroup}</strong> בכל קבוצה.
+            </span>
+          </div>
 
-        <div className="flex items-center gap-2">
-          <span className="w-5 h-5 rounded-full bg-sky-600 text-white font-bold text-xs flex items-center justify-center">2</span>
-          <span>
-            לקחנו {selectedGroups} קבוצות: <strong>{selectedGroups} × {itemsPerGroup} = {resultCount}</strong> {itemName}!
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="w-5 h-5 rounded-full bg-sky-600 text-white font-bold text-xs flex items-center justify-center">2</span>
+            <span>
+              לקחנו {selectedGroups} קבוצות: <strong>{selectedGroups} × {itemsPerGroup} = {resultCount}</strong> {itemName}!
+            </span>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

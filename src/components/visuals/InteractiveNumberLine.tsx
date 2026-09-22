@@ -7,6 +7,8 @@ interface NumberLineProps {
   targetIndex?: number; // tick index from 0 to totalTicks
   dotColor?: string;
   showLabels?: boolean;
+  showMarkerLabel?: boolean;
+  showInfoFooter?: boolean;
   showJumpArcs?: boolean;
   interactive?: boolean;
   selectedIndex?: number;
@@ -21,6 +23,8 @@ export const InteractiveNumberLine: React.FC<NumberLineProps> = ({
   targetIndex,
   dotColor = '#ef4444',
   showLabels = false,
+  showMarkerLabel = false,
+  showInfoFooter = false,
   showJumpArcs = false,
   interactive = false,
   selectedIndex,
@@ -175,8 +179,8 @@ export const InteractiveNumberLine: React.FC<NumberLineProps> = ({
                   </text>
                 )}
 
-                {/* Fraction labels if enabled or hovered */}
-                {(!isWhole && (showLabels || isHovered || isSelected)) && (
+                {/* Fraction labels only if explicitly requested */}
+                {(!isWhole && showLabels && (isHovered || isSelected)) && (
                   <text
                     x={x}
                     y={lineY + 30}
@@ -204,28 +208,32 @@ export const InteractiveNumberLine: React.FC<NumberLineProps> = ({
                 strokeWidth="3"
                 className="drop-shadow-md animate-pulse"
               />
-              <path
-                d={`M ${getTickX(activeDotIndex)} ${lineY - 14} L ${getTickX(activeDotIndex) - 8} ${lineY - 26} L ${getTickX(activeDotIndex) + 8} ${lineY - 26} Z`}
-                fill={dotColor}
-              />
-              <rect
-                x={getTickX(activeDotIndex) - 28}
-                y={lineY - 48}
-                width="56"
-                height="22"
-                rx="6"
-                fill={dotColor}
-              />
-              <text
-                x={getTickX(activeDotIndex)}
-                y={lineY - 33}
-                textAnchor="middle"
-                fontSize="12"
-                fontWeight="bold"
-                fill="#ffffff"
-              >
-                {getFractionLabel(activeDotIndex)}
-              </text>
+              {showMarkerLabel && (
+                <>
+                  <path
+                    d={`M ${getTickX(activeDotIndex)} ${lineY - 14} L ${getTickX(activeDotIndex) - 8} ${lineY - 26} L ${getTickX(activeDotIndex) + 8} ${lineY - 26} Z`}
+                    fill={dotColor}
+                  />
+                  <rect
+                    x={getTickX(activeDotIndex) - 28}
+                    y={lineY - 48}
+                    width="56"
+                    height="22"
+                    rx="6"
+                    fill={dotColor}
+                  />
+                  <text
+                    x={getTickX(activeDotIndex)}
+                    y={lineY - 33}
+                    textAnchor="middle"
+                    fontSize="12"
+                    fontWeight="bold"
+                    fill="#ffffff"
+                  >
+                    {getFractionLabel(activeDotIndex)}
+                  </text>
+                </>
+              )}
             </g>
           )}
         </svg>
@@ -237,15 +245,17 @@ export const InteractiveNumberLine: React.FC<NumberLineProps> = ({
         )}
       </div>
 
-      <div className="flex items-center gap-3 text-xs md:text-sm text-slate-600 bg-slate-100 px-3 py-1.5 rounded-lg">
-        <span>
-          כל יחידה שלמה (מ-0 עד 1) חולקה ל-<strong>{divisions}</strong> קטעים שווים
-        </span>
-        <span>•</span>
-        <span>
-          גודל כל צעד: <strong>1/{divisions}</strong>
-        </span>
-      </div>
+      {showInfoFooter && (
+        <div className="flex items-center gap-3 text-xs md:text-sm text-slate-600 bg-slate-100 px-3 py-1.5 rounded-lg">
+          <span>
+            כל יחידה שלמה (מ-0 עד 1) חולקה ל-<strong>{divisions}</strong> קטעים שווים
+          </span>
+          <span>•</span>
+          <span>
+            גודל כל צעד: <strong>1/{divisions}</strong>
+          </span>
+        </div>
+      )}
     </div>
   );
 };

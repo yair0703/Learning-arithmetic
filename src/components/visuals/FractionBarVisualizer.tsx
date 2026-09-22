@@ -7,6 +7,8 @@ interface FractionBarProps {
   interactive?: boolean;
   onColoredChange?: (newColored: number) => void;
   showLabels?: boolean;
+  showPartNumbers?: boolean;
+  showInfoFooter?: boolean;
   label?: string;
   height?: string;
 }
@@ -17,7 +19,9 @@ export const FractionBarVisualizer: React.FC<FractionBarProps> = ({
   color = '#4f46e5',
   interactive = false,
   onColoredChange,
-  showLabels = true,
+  showLabels = false,
+  showPartNumbers = false,
+  showInfoFooter = false,
   label,
   height = 'h-14'
 }) => {
@@ -62,11 +66,13 @@ export const FractionBarVisualizer: React.FC<FractionBarProps> = ({
               }}
               title={interactive ? `לחץ לצביעת חלק ${i + 1}` : undefined}
             >
-              <span className="text-xs font-mono font-bold drop-shadow-xs">
-                {i + 1}
-              </span>
+              {showPartNumbers && (
+                <span className="text-xs font-mono font-bold drop-shadow-xs">
+                  {i + 1}
+                </span>
+              )}
               {showLabels && (
-                <span className="text-[10px] opacity-80 mt-0.5">
+                <span className="text-[10px] opacity-80 mt-0.5 font-bold">
                   1/{totalParts}
                 </span>
               )}
@@ -75,23 +81,25 @@ export const FractionBarVisualizer: React.FC<FractionBarProps> = ({
         })}
       </div>
 
-      <div className="flex items-center gap-4 text-sm text-slate-700 bg-slate-100 px-4 py-1.5 rounded-full">
-        <span className="flex items-center gap-1.5">
-          <span
-            className="w-3.5 h-3.5 rounded-full inline-block"
-            style={{ backgroundColor: color }}
-          />
-          חלקים צבועים (מונה): <strong className="font-bold text-slate-900">{coloredParts}</strong>
-        </span>
-        <span className="text-slate-300">|</span>
-        <span>
-          סך הכל חלקים שווים (מכנה): <strong className="font-bold text-slate-900">{totalParts}</strong>
-        </span>
-        <span className="text-slate-300">|</span>
-        <span className="font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">
-          {coloredParts}/{totalParts}
-        </span>
-      </div>
+      {showInfoFooter && (
+        <div className="flex items-center gap-4 text-sm text-slate-700 bg-slate-100 px-4 py-1.5 rounded-full">
+          <span className="flex items-center gap-1.5">
+            <span
+              className="w-3.5 h-3.5 rounded-full inline-block"
+              style={{ backgroundColor: color }}
+            />
+            חלקים צבועים (מונה): <strong className="font-bold text-slate-900">{coloredParts}</strong>
+          </span>
+          <span className="text-slate-300">|</span>
+          <span>
+            סך הכל חלקים שווים (מכנה): <strong className="font-bold text-slate-900">{totalParts}</strong>
+          </span>
+          <span className="text-slate-300">|</span>
+          <span className="font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">
+            {coloredParts}/{totalParts}
+          </span>
+        </div>
+      )}
     </div>
   );
 };

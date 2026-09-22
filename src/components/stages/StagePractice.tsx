@@ -12,6 +12,7 @@ import { BookGeometryShape } from '../visuals/BookGeometryShape';
 import { FractionOrderDragExercise } from '../visuals/FractionOrderDragExercise';
 import { FractionBookComparisonCard } from '../visuals/FractionBookComparisonCard';
 import { GeoboardWholeBuilder } from '../visuals/GeoboardWholeBuilder';
+import { TopicCompletionVisualizer } from '../visuals/TopicCompletionVisualizer';
 import {
   HelpCircle,
   Lightbulb,
@@ -108,7 +109,11 @@ export const StagePractice: React.FC<StagePracticeProps> = ({
     if (!selectedOptionId) return;
 
     const chosenOption = currentExercise.options?.find((o) => o.id === selectedOptionId);
-    const correct = !!chosenOption?.isCorrect;
+    const correctOption = currentExercise.options?.find((o) => o.isCorrect);
+    const correct = Boolean(
+      chosenOption?.isCorrect ||
+      (chosenOption && correctOption && chosenOption.label.trim() === correctOption.label.trim())
+    );
 
     setIsAnswered(true);
     setIsCorrect(correct);
@@ -143,7 +148,6 @@ export const StagePractice: React.FC<StagePracticeProps> = ({
     setFeedbackMessage(feedback);
 
     // Record in global storage & adaptive system
-    const correctOption = currentExercise.options?.find((o) => o.isCorrect);
     const updated = recordExerciseAttempt(progress, {
       topicId: topic.id,
       exerciseId: currentExercise.id,
@@ -308,6 +312,15 @@ export const StagePractice: React.FC<StagePracticeProps> = ({
                 ? 'התקדמות יפה מאוד! תרגול של עוד סבב אחד יקדם אותך לרמת אלוף.'
                 : 'התחלה טובה! ככל שתתרגל יותר שאלות ותענה נכון, מדד השליטה יעלה.'}
             </p>
+          </div>
+
+          {/* Dynamic Concept Visualizer for Chapter Completion */}
+          <div className="w-full mt-2">
+            <TopicCompletionVisualizer
+              topicId={topic.id}
+              topicTitle={topic.title}
+              onExploreMore={onOpenSandbox}
+            />
           </div>
 
           {/* Action Buttons */}
