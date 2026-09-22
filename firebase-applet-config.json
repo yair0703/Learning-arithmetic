@@ -1,12 +1,13 @@
 {
-  "projectId": "winged-cacao-jkpr3",
-  "appId": "1:491156320235:web:56263ed24d144e513233ae",
-  "apiKey": "AIzaSyDZDSWpCABsr2dtWNtJZNjy1WD92IH6GkE",
-  "authDomain": "winged-cacao-jkpr3.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-848c28b8-51cc-41e0-888d-0f7937e91368",
-  "storageBucket": "winged-cacao-jkpr3.firebasestorage.app",
-  "messagingSenderId": "491156320235",
-  "measurementId": "",
-  "oAuthClientId": "491156320235-04c4e8vjobmodr9hi0j120iqqdbb6tk7.apps.googleusercontent.com",
-  "recaptchaSiteKey": ""
+    "projectId": "gen-lang-client-0659910814",
+      "appId": "1:169957025034:web:f467ba4af6b3c7384d86f3",
+        "apiKey": "AIzaSyAqfwwWduzNW8oi6lqorERq0LH3suChOA",
+          "authDomain": "gen-lang-client-0659910814.firebaseapp.com",
+            "firestoreDatabaseId": "ai-studio-940c2fbb-5",
+              "storageBucket": "gen-lang-client-0659910814.firebasestorage.app",
+                "messagingSenderId": "169957025034",
+                  "measurementId": "",
+                    "oAuthClientId": "",
+                      "recaptchaSiteKey": ""
+                      }
 }
