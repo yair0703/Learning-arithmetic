@@ -84,8 +84,13 @@ export default function App() {
     if (!auth) return;
 
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      // Respect active profile session stored in LocalStorage
+      const savedProfile = getSavedUserProfile();
+      if (savedProfile.role === 'student' || savedProfile.role === 'guest') {
+        return;
+      }
+
       if (firebaseUser) {
-        // If current profile is not already a parent, update to parent
         setUserProfile((prev) => {
           if (prev.role === 'parent' && prev.uid === firebaseUser.uid) return prev;
           const updated: UserProfile = {

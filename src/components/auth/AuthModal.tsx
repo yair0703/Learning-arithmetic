@@ -20,6 +20,8 @@ import {
   registerParentWithEmail,
   findStudentByLoginCode,
   saveUserProfileToStorage,
+  getSavedUserProfile,
+  logoutUser,
   setStudentCloudId
 } from '../../utils/firebase';
 import { UserProfile, StudentProgress } from '../../types';
@@ -52,6 +54,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [parentPassword, setParentPassword] = useState<string>('');
   const [parentLoading, setParentLoading] = useState<boolean>(false);
   const [parentError, setParentError] = useState<string | null>(null);
+
+  // Logout handler
+  const currentSavedProfile = getSavedUserProfile();
+
+  const handleLogoutCurrentProfile = async () => {
+    await logoutUser();
+    const guestProfile: UserProfile = {
+      role: 'guest',
+      displayName: 'תלמיד/ה (מצב מקומי)'
+    };
+    saveUserProfileToStorage(guestProfile);
+    onLoginSuccess(guestProfile);
+    onClose();
+  };
 
   if (!isOpen) return null;
 
@@ -228,6 +244,34 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
         {/* Modal Body */}
         <div className="p-6">
+          {/* Active Logged-in Profile Banner */}
+          {currentSavedProfile.role && currentSavedProfile.role !== 'guest' && (
+            <div className="mb-5 p-3.5 bg-indigo-50/90 border border-indigo-200 rounded-2xl flex items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-base shrink-0">
+                  {currentSavedProfile.role === 'parent' ? '🛡️' : '👦'}
+                </div>
+                <div className="min-w-0">
+                  <div className="font-black text-indigo-950 truncate">
+                    מחובר כעת: {currentSavedProfile.displayName || (currentSavedProfile.role === 'parent' ? 'הורה' : 'תלמיד')}
+                  </div>
+                  <div className="text-[11px] text-indigo-700 truncate font-medium">
+                    {currentSavedProfile.role === 'parent'
+                      ? (currentSavedProfile.email || 'חשבון הורה מחובר')
+                      : `קוד תלמיד פעיל: ${currentSavedProfile.studentCode || ''}`}
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleLogoutCurrentProfile}
+                className="px-3 py-1.5 bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-200 text-rose-700 font-bold rounded-xl text-xs transition-all shadow-2xs cursor-pointer shrink-0 active:scale-95"
+              >
+                התנתק/י
+              </button>
+            </div>
+          )}
+
           {/* TAB 1: STUDENT LOGIN */}
           {activeTab === 'student' && (
             <div className="flex flex-col gap-4">

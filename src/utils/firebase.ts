@@ -416,6 +416,59 @@ export async function logoutUser(): Promise<void> {
   clearUserProfileStorage();
 }
 
+// Local storage caching keys for linked children and offline lookup
+const LINKED_CHILDREN_CACHE_PREFIX = 'maslulim_linked_children_cache_';
+const ALL_KNOWN_STUDENTS_CACHE_KEY = 'maslulim_all_known_students_v1';
+
+export function getCachedChildrenForParent(parentId: string): LinkedStudentProfile[] {
+  try {
+    const raw = localStorage.getItem(`${LINKED_CHILDREN_CACHE_PREFIX}${parentId}`);
+    if (raw) return JSON.parse(raw);
+  } catch {
+    // ignore
+  }
+  return [];
+}
+
+export function saveCachedChildrenForParent(parentId: string, children: LinkedStudentProfile[]): void {
+  try {
+    localStorage.setItem(`${LINKED_CHILDREN_CACHE_PREFIX}${parentId}`, JSON.stringify(children));
+  } catch {
+    // ignore
+  }
+}
+
+export function saveCachedStudentProfileLocally(student: LinkedStudentProfile, progressData?: StudentProgress): void {
+  try {
+    const raw = localStorage.getItem(ALL_KNOWN_STUDENTS_CACHE_KEY);
+    const map: Record<string, { student: LinkedStudentProfile; progress?: StudentProgress }> = raw ? JSON.parse(raw) : {};
+    
+    if (student.studentCode) {
+      map[student.studentCode.toUpperCase()] = { student, progress: progressData };
+    }
+    if (student.studentId) {
+      map[student.studentId.toUpperCase()] = { student, progress: progressData };
+    }
+
+    localStorage.setItem(ALL_KNOWN_STUDENTS_CACHE_KEY, JSON.stringify(map));
+  } catch {
+    // ignore
+  }
+}
+
+export function findCachedStudentByCode(code: string): { student?: LinkedStudentProfile; progress?: StudentProgress } | null {
+  try {
+    const cleanCode = code.trim().toUpperCase();
+    const raw = localStorage.getItem(ALL_KNOWN_STUDENTS_CACHE_KEY);
+    if (!raw) return null;
+    const map = JSON.parse(raw);
+    if (map[cleanCode]) return map[cleanCode];
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
 /**
  * Creates a new linked child/student profile under a parent account
  */
@@ -425,7 +478,6 @@ export async function createLinkedChildProfile(
   customExactCode?: string
 ): Promise<{ success: boolean; student?: LinkedStudentProfile; error?: string }> {
   const db = getFirebaseDb();
-  if (!db) return { success: false, error: 'מסד הנתונים בענן אינו זמין' };
 
   try {
     const cleanName = studentName.trim();
@@ -453,22 +505,28 @@ export async function createLinkedChildProfile(
       accuracyRate: 0
     };
 
-    // Save initial student progress document in Firestore with timeout guard
-    const studentDocRef = doc(db, 'students', studentDocId);
     const initialProgress = getInitialProgress();
 
-    const writePromise = setDoc(studentDocRef, {
-      ...initialProgress,
-      studentId: studentDocId,
-      studentName: cleanName,
-      studentCode,
-      parentId,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    });
+    // Cache locally immediately so child appears right away even if network is slow
+    const existingCached = getCachedChildrenForParent(parentId);
+    saveCachedChildrenForParent(parentId, [newStudentProfile, ...existingCached]);
+    saveCachedStudentProfileLocally(newStudentProfile, initialProgress);
 
-    const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 8000));
-    await Promise.race([writePromise, timeoutPromise]);
+    if (db) {
+      const studentDocRef = doc(db, 'students', studentDocId);
+      const writePromise = setDoc(studentDocRef, {
+        ...initialProgress,
+        studentId: studentDocId,
+        studentName: cleanName,
+        studentCode,
+        parentId,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+
+      const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 6000));
+      await Promise.race([writePromise, timeoutPromise]);
+    }
 
     return { success: true, student: newStudentProfile };
   } catch (err: unknown) {
@@ -485,18 +543,18 @@ export async function updateLinkedChildCode(
   studentId: string,
   newCode: string
 ): Promise<{ success: boolean; error?: string }> {
+  const cleanCode = newCode.trim().toUpperCase();
+  if (!cleanCode) return { success: false, error: 'קוד הכניסה אינו יכול להיות ריק' };
+
   const db = getFirebaseDb();
-  if (!db) return { success: false, error: 'מסד הנתונים בענן אינו זמין' };
-
   try {
-    const cleanCode = newCode.trim().toUpperCase();
-    if (!cleanCode) return { success: false, error: 'קוד הכניסה אינו יכול להיות ריק' };
-
-    const studentDocRef = doc(db, 'students', studentId);
-    await updateDoc(studentDocRef, {
-      studentCode: cleanCode,
-      updatedAt: new Date().toISOString()
-    });
+    if (db) {
+      const studentDocRef = doc(db, 'students', studentId);
+      await updateDoc(studentDocRef, {
+        studentCode: cleanCode,
+        updatedAt: new Date().toISOString()
+      });
+    }
 
     return { success: true };
   } catch (err: unknown) {
@@ -513,11 +571,11 @@ export async function deleteLinkedChild(
   studentId: string
 ): Promise<{ success: boolean; error?: string }> {
   const db = getFirebaseDb();
-  if (!db) return { success: false, error: 'מסד הנתונים בענן אינו זמין' };
-
   try {
-    const studentDocRef = doc(db, 'students', studentId);
-    await deleteDoc(studentDocRef);
+    if (db) {
+      const studentDocRef = doc(db, 'students', studentId);
+      await deleteDoc(studentDocRef);
+    }
     return { success: true };
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : 'שגיאה במחיקת תלמיד';
@@ -527,18 +585,28 @@ export async function deleteLinkedChild(
 }
 
 /**
- * Fetches all linked children for a parent UID from Firestore
+ * Fetches all linked children for a parent UID from Firestore with local cache fallback
  */
 export async function getLinkedChildrenForParent(
   parentId: string
 ): Promise<LinkedStudentProfile[]> {
+  const cachedList = getCachedChildrenForParent(parentId);
   const db = getFirebaseDb();
-  if (!db || !parentId) return [];
+
+  if (!db || !parentId) {
+    return cachedList;
+  }
 
   try {
     const studentsRef = collection(db, 'students');
     const q = query(studentsRef, where('parentId', '==', parentId));
-    const querySnapshot = await getDocs(q);
+
+    const fetchPromise = getDocs(q);
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('timeout')), 5000)
+    );
+
+    const querySnapshot = await Promise.race([fetchPromise, timeoutPromise]);
 
     const list: LinkedStudentProfile[] = [];
     querySnapshot.forEach((docSnap) => {
@@ -547,7 +615,7 @@ export async function getLinkedChildrenForParent(
       const totalCorrect = data.totalCorrect || 0;
       const accuracyRate = totalSolved > 0 ? Math.round((totalCorrect / totalSolved) * 100) : 0;
 
-      list.push({
+      const studentItem: LinkedStudentProfile = {
         studentId: docSnap.id,
         studentName: data.studentName || 'תלמיד/ה',
         studentCode: data.studentCode || docSnap.id,
@@ -557,49 +625,99 @@ export async function getLinkedChildrenForParent(
         totalSolved,
         totalCorrect,
         accuracyRate
-      });
+      };
+
+      list.push(studentItem);
+      saveCachedStudentProfileLocally(studentItem, data as StudentProgress);
     });
 
+    saveCachedChildrenForParent(parentId, list);
     return list;
   } catch (err) {
-    console.error('Error fetching linked children:', err);
-    return [];
+    console.warn('Could not fetch linked children from cloud, returning local cached list:', err);
+    return cachedList;
   }
 }
 
 /**
- * Student quick login by Student Code (e.g. ITAY-482 or MASLUL-1234)
+ * Student quick login by Student Code (e.g. ITAY-482 or 2016 or 2026)
  */
 export async function findStudentByLoginCode(
   studentCode: string
 ): Promise<{ success: boolean; progress?: StudentProgress; studentId?: string; studentName?: string; error?: string }> {
-  const db = getFirebaseDb();
-  if (!db) return { success: false, error: 'מסד הנתונים בענן אינו זמין' };
-
   const cleanCode = studentCode.trim().toUpperCase();
   if (!cleanCode) return { success: false, error: 'נא להזין קוד תלמיד' };
 
-  try {
-    // 1. Direct document check (if code is the doc ID)
-    const directDoc = await getDoc(doc(db, 'students', cleanCode));
-    if (directDoc.exists()) {
-      const data = directDoc.data();
+  // 1. Check local cache first for instant offline fallback
+  const localMatch = findCachedStudentByCode(cleanCode);
+
+  const db = getFirebaseDb();
+  if (!db) {
+    if (localMatch?.student) {
       return {
         success: true,
-        progress: data as StudentProgress,
-        studentId: directDoc.id,
-        studentName: data.studentName || 'תלמיד/ה'
+        progress: localMatch.progress || getInitialProgress(),
+        studentId: localMatch.student.studentId,
+        studentName: localMatch.student.studentName
       };
     }
+    return { success: false, error: 'מסד הנתונים בענן אינו זמין כרגע במצב לא מקוון' };
+  }
 
-    // 2. Query by studentCode field
+  try {
+    const timeoutMs = 5000;
+
+    // 2. Direct document check (if code is doc ID)
+    try {
+      const directDocPromise = getDoc(doc(db, 'students', cleanCode));
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('timeout')), timeoutMs)
+      );
+      const directDoc = await Promise.race([directDocPromise, timeoutPromise]);
+
+      if (directDoc.exists()) {
+        const data = directDoc.data();
+        const studentItem: LinkedStudentProfile = {
+          studentId: directDoc.id,
+          studentName: data.studentName || 'תלמיד/ה',
+          studentCode: data.studentCode || cleanCode,
+          parentId: data.parentId || '',
+          createdAt: data.createdAt || new Date().toISOString()
+        };
+        saveCachedStudentProfileLocally(studentItem, data as StudentProgress);
+
+        return {
+          success: true,
+          progress: data as StudentProgress,
+          studentId: directDoc.id,
+          studentName: data.studentName || 'תלמיד/ה'
+        };
+      }
+    } catch {
+      // Direct doc check bypassed/failed, fallback to query
+    }
+
+    // 3. Query by studentCode field
     const studentsRef = collection(db, 'students');
     const q = query(studentsRef, where('studentCode', '==', cleanCode));
-    const snap = await getDocs(q);
+    const snapPromise = getDocs(q);
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('timeout')), timeoutMs)
+    );
+    const snap = await Promise.race([snapPromise, timeoutPromise]);
 
     if (!snap.empty) {
       const docItem = snap.docs[0];
       const data = docItem.data();
+      const studentItem: LinkedStudentProfile = {
+        studentId: docItem.id,
+        studentName: data.studentName || 'תלמיד/ה',
+        studentCode: data.studentCode || cleanCode,
+        parentId: data.parentId || '',
+        createdAt: data.createdAt || new Date().toISOString()
+      };
+      saveCachedStudentProfileLocally(studentItem, data as StudentProgress);
+
       return {
         success: true,
         progress: data as StudentProgress,
@@ -608,9 +726,37 @@ export async function findStudentByLoginCode(
       };
     }
 
-    return { success: false, error: `לא נמצא תלמיד עם קוד "${cleanCode}". בדקו את הקוד עם ההורה ונסו שוב.` };
+    // If local match exists, use local match
+    if (localMatch?.student) {
+      return {
+        success: true,
+        progress: localMatch.progress || getInitialProgress(),
+        studentId: localMatch.student.studentId,
+        studentName: localMatch.student.studentName
+      };
+    }
+
+    return { success: false, error: `לא נמצא תלמיד עם הקוד "${cleanCode}". בדקו את הקוד עם ההורה ונסו שוב.` };
   } catch (err: unknown) {
-    const errorMsg = err instanceof Error ? err.message : 'שגיאה באיתור חשבון התלמיד';
+    if (localMatch?.student) {
+      return {
+        success: true,
+        progress: localMatch.progress || getInitialProgress(),
+        studentId: localMatch.student.studentId,
+        studentName: localMatch.student.studentName
+      };
+    }
+
+    let errorMsg = 'שגיאה באיתור חשבון התלמיד';
+    const rawErrStr = err instanceof Error ? err.message : String(err);
+
+    if (rawErrStr.includes('offline') || rawErrStr.includes('Failed to get document')) {
+      errorMsg = 'החיבור לרשת מנותק או איטי כרגע. אנא בדוק את חיבור האינטרנט ונסה שוב.';
+    } else if (rawErrStr.includes('timeout')) {
+      errorMsg = 'זמן התגובה של השרת התארך. אנא בדוק את החיבור לרשת ונסה שוב.';
+    } else if (err instanceof Error) {
+      errorMsg = err.message;
+    }
     console.error('Error looking up student code:', err);
     return { success: false, error: errorMsg };
   }
