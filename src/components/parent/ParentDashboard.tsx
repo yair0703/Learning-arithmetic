@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import { StudentProgress, ParentDiagnosticInsight } from '../../types';
 import { TOPICS } from '../../data/curriculumData';
-import { generateParentDiagnosticReport, seedDemoProgress, getInitialProgress, saveStudentProgress } from '../../utils/storage';
+import { generateParentDiagnosticReport, seedDemoProgress, getInitialProgress, saveStudentProgress, resetParentPinToDefault } from '../../utils/storage';
+import { WeeklyProgressChart } from './WeeklyProgressChart';
+import { ParentPinLock } from './ParentPinLock';
+import { ChangePinModal } from './ChangePinModal';
 import {
   ShieldCheck,
   Award,
@@ -14,7 +17,9 @@ import {
   BarChart2,
   BookOpen,
   Sparkles,
-  HeartHandshake
+  HeartHandshake,
+  Lock,
+  KeyRound
 } from 'lucide-react';
 
 interface ParentDashboardProps {
@@ -28,9 +33,21 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
   onProgressUpdate,
   onBackToStudent
 }) => {
+  const [isUnlocked, setIsUnlocked] = useState<boolean>(false);
+  const [isChangePinOpen, setIsChangePinOpen] = useState<boolean>(false);
   const [report, setReport] = useState<ParentDiagnosticInsight>(() =>
     generateParentDiagnosticReport(progress)
   );
+
+  // If not authenticated, present the PIN lock screen
+  if (!isUnlocked) {
+    return (
+      <ParentPinLock
+        onSuccess={() => setIsUnlocked(true)}
+        onCancel={onBackToStudent}
+      />
+    );
+  }
 
   const handleSeedDemo = () => {
     const demo = seedDemoProgress();
@@ -58,7 +75,7 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <span className="text-xs bg-indigo-500/30 text-indigo-300 px-2.5 py-0.5 rounded-full font-bold">
-                אזור הורים ומורים
+                אזור הורים ומורים (מאומת)
               </span>
               <span className="text-xs text-slate-400">תכנית מסלולים פלוס – כיתה ה׳</span>
             </div>
@@ -66,14 +83,39 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={onBackToStudent}
-          className="px-5 py-2.5 bg-white hover:bg-slate-100 text-slate-900 font-bold text-sm rounded-xl flex items-center gap-2 transition-all active:scale-95 shadow-xs shrink-0"
-        >
-          <span>חזרה למסך התלמיד</span>
-          <ArrowRight className="w-4 h-4" />
-        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Change PIN button */}
+          <button
+            type="button"
+            onClick={() => setIsChangePinOpen(true)}
+            className="px-3.5 py-2.5 bg-slate-800/90 hover:bg-slate-700 text-indigo-200 border border-indigo-500/30 font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+            title="שינוי קוד PIN של אזור ההורה"
+          >
+            <KeyRound className="w-4 h-4 text-indigo-400" />
+            <span>שינוי PIN</span>
+          </button>
+
+          {/* Lock Dashboard button */}
+          <button
+            type="button"
+            onClick={() => setIsUnlocked(false)}
+            className="px-3.5 py-2.5 bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+            title="נעילת אזור ההורה"
+          >
+            <Lock className="w-4 h-4 text-amber-400" />
+            <span>נעילת מסך</span>
+          </button>
+
+          {/* Back to Student button */}
+          <button
+            type="button"
+            onClick={onBackToStudent}
+            className="px-4 py-2.5 bg-white hover:bg-slate-100 text-slate-900 font-bold text-xs md:text-sm rounded-xl flex items-center gap-2 transition-all active:scale-95 shadow-xs shrink-0 cursor-pointer"
+          >
+            <span>חזרה לתלמיד</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {/* Key Metrics Overview */}
@@ -122,6 +164,9 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
           <span className="text-[11px] text-slate-400">התמדה מומלצת</span>
         </div>
       </div>
+
+      {/* Weekly Progress Bar Chart (Recharts) */}
+      <WeeklyProgressChart progress={progress} />
 
       {/* Main Pedagogical Insight Highlight Card */}
       <div className="bg-gradient-to-r from-indigo-50 to-blue-50 border-2 border-indigo-200 p-6 rounded-3xl shadow-xs flex flex-col gap-4">
@@ -267,25 +312,39 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
       {/* Parent utilities & mock data */}
       <div className="bg-slate-100 p-4 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs text-slate-600">
         <div>
-          <span>כלי עזר להורים: ניתן להציג דוח לדוגמה עם נתוני תלמיד אמיתיים או לאפס נתונים.</span>
+          <span>כלי עזר ואבטחה להורים: ניהול קוד גישה, צפייה בנתוני הדגמה או איפוס נתונים.</span>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setIsChangePinOpen(true)}
+            className="px-3 py-1.5 bg-white hover:bg-slate-200 text-indigo-700 font-bold rounded-lg border border-indigo-200 flex items-center gap-1.5 cursor-pointer"
+          >
+            <KeyRound className="w-3.5 h-3.5" />
+            <span>שינוי קוד PIN</span>
+          </button>
           <button
             type="button"
             onClick={handleSeedDemo}
-            className="px-3 py-1.5 bg-white hover:bg-slate-200 text-slate-800 font-bold rounded-lg border border-slate-300"
+            className="px-3 py-1.5 bg-white hover:bg-slate-200 text-slate-800 font-bold rounded-lg border border-slate-300 cursor-pointer"
           >
             טען נתוני הדגמה לדוח
           </button>
           <button
             type="button"
             onClick={handleResetProgress}
-            className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-lg border border-rose-200"
+            className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-lg border border-rose-200 cursor-pointer"
           >
             איפוס נתונים
           </button>
         </div>
       </div>
+
+      {/* Change PIN Modal */}
+      <ChangePinModal
+        isOpen={isChangePinOpen}
+        onClose={() => setIsChangePinOpen(false)}
+      />
     </div>
   );
 };

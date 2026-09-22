@@ -128,6 +128,7 @@ export interface StudentProgress {
   timeSpentSeconds: number;
   dailyStreak: number;
   lastActiveDate: string;
+  dailyHistory?: Record<string, { solved: number; correct: number; timeSpentSeconds?: number }>;
   topicsProgress: Record<
     TopicId,
     {
