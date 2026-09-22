@@ -165,3 +165,27 @@ export interface ParentDiagnosticInsight {
     howToHelpAtHome: string;
   }[];
 }
+
+export type UserRole = 'student' | 'parent' | 'guest';
+
+export interface UserProfile {
+  role: UserRole;
+  uid?: string;
+  displayName: string;
+  email?: string;
+  studentCode?: string;
+  linkedParentId?: string;
+  avatarIcon?: string;
+}
+
+export interface LinkedStudentProfile {
+  studentId: string;
+  studentName: string;
+  studentCode: string;
+  parentId: string;
+  createdAt: string;
+  lastActiveDate?: string;
+  totalSolved?: number;
+  totalCorrect?: number;
+  accuracyRate?: number;
+}

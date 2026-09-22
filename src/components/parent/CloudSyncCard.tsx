@@ -1,17 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import {
   Cloud,
-  CloudCheck,
-  CloudUpload,
   CloudDownload,
   Copy,
   Check,
   RefreshCw,
   Info,
-  Laptop,
-  Smartphone,
-  ShieldCheck,
-  AlertCircle
+  AlertCircle,
+  Database,
+  WifiOff
 } from 'lucide-react';
 import { StudentProgress } from '../../types';
 import {
@@ -20,6 +17,10 @@ import {
   saveStudentProgressToCloud,
   loadStudentProgressFromCloud
 } from '../../utils/firebase';
+import {
+  getOfflineQueueCount,
+  flushOfflineQueue
+} from '../../utils/syncQueue';
 import { saveStudentProgress } from '../../utils/storage';
 
 interface CloudSyncCardProps {
@@ -37,11 +38,29 @@ export const CloudSyncCard: React.FC<CloudSyncCardProps> = ({
   const [copied, setCopied] = useState<boolean>(false);
   const [customInputId, setCustomInputId] = useState<string>('');
   const [isRestoreOpen, setIsRestoreOpen] = useState<boolean>(false);
+  const [pendingQueueCount, setPendingQueueCount] = useState<number>(0);
+  const [isOnline, setIsOnline] = useState<boolean>(() => typeof navigator !== 'undefined' ? navigator.onLine : true);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Auto-sync on component mount to ensure cloud has latest data
+  const refreshQueueCount = async () => {
+    const count = await getOfflineQueueCount();
+    setPendingQueueCount(count);
+  };
+
   useEffect(() => {
+    refreshQueueCount();
     handleSyncNow();
+
+    const handleOn = () => { setIsOnline(true); refreshQueueCount(); };
+    const handleOff = () => { setIsOnline(false); refreshQueueCount(); };
+
+    window.addEventListener('online', handleOn);
+    window.addEventListener('offline', handleOff);
+
+    return () => {
+      window.removeEventListener('online', handleOn);
+      window.removeEventListener('offline', handleOff);
+    };
   }, []);
 
   const handleCopyCode = async () => {
@@ -50,7 +69,6 @@ export const CloudSyncCard: React.FC<CloudSyncCardProps> = ({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Fallback
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
@@ -60,12 +78,19 @@ export const CloudSyncCard: React.FC<CloudSyncCardProps> = ({
     setIsSyncing(true);
     setMessage(null);
     try {
-      const res = await saveStudentProgressToCloud(progress, cloudId);
-      if (res.success) {
-        setLastSyncTime(res.timestamp);
-        setMessage({ type: 'success', text: `הנתונים נשמרו וסונכרנו בענן בהצלחה (${res.timestamp})` });
+      // First flush any offline queue
+      const queueRes = await flushOfflineQueue();
+      const directRes = await saveStudentProgressToCloud(progress, cloudId);
+      await refreshQueueCount();
+
+      if (directRes.success) {
+        setLastSyncTime(directRes.timestamp);
+        setMessage({
+          type: 'success',
+          text: `הנתונים סונכרנו בהצלחה לענן Firebase (${directRes.timestamp})${queueRes.flushedCount > 0 ? ` + נפרקו ${queueRes.flushedCount} שינויים שהמתינו ב-IndexedDB` : ''}`
+        });
       } else {
-        setMessage({ type: 'error', text: res.error || 'שגיאה בסנכרון לענן' });
+        setMessage({ type: 'error', text: directRes.error || 'שגיאה בסנכרון לענן' });
       }
     } catch {
       setMessage({ type: 'error', text: 'שגיאת תקשורת עם שרתי הענן' });
@@ -85,7 +110,6 @@ export const CloudSyncCard: React.FC<CloudSyncCardProps> = ({
     const res = await loadStudentProgressFromCloud(targetId);
 
     if (res.success && res.data) {
-      // Save locally and update state
       setStudentCloudId(targetId);
       setLocalCloudId(targetId);
       saveStudentProgress(res.data);
@@ -94,6 +118,7 @@ export const CloudSyncCard: React.FC<CloudSyncCardProps> = ({
       setMessage({ type: 'success', text: `נתוני התלמיד שוחזרו בהצלחה מהענן לפי קוד ${targetId}!` });
       setIsRestoreOpen(false);
       setCustomInputId('');
+      await refreshQueueCount();
     } else {
       setMessage({ type: 'error', text: res.error || 'לא נמצאו נתונים עבור קוד ענן זה.' });
     }
@@ -114,12 +139,19 @@ export const CloudSyncCard: React.FC<CloudSyncCardProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-lg md:text-xl font-black text-slate-900">
-                שמירה וגיבוי בענן (Firebase Cloud Sync)
+                שמירה וסנכרון ענן (Offline-First + Firestore)
               </h2>
-              <span className="bg-emerald-100 text-emerald-800 text-[11px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                פעיל ומאובטח
-              </span>
+              {isOnline ? (
+                <span className="bg-emerald-100 text-emerald-800 text-[11px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  מקוון (Online)
+                </span>
+              ) : (
+                <span className="bg-amber-100 text-amber-900 text-[11px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                  <WifiOff className="w-3 h-3 text-amber-600" />
+                  לא מקוון (Offline Queue פעיל)
+                </span>
+              )}
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
               סנכרון רציף של הישגי התלמיד, רצף ימי הלמידה, זמני האימון ויומן הטעויות
@@ -139,7 +171,7 @@ export const CloudSyncCard: React.FC<CloudSyncCardProps> = ({
         </button>
       </div>
 
-      {/* Cloud ID & Share Section */}
+      {/* Cloud ID & Offline Queue Status Bar */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Cloud Student Code Box */}
         <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex flex-col justify-between gap-3">
@@ -164,7 +196,10 @@ export const CloudSyncCard: React.FC<CloudSyncCardProps> = ({
           </div>
 
           <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-200">
-            <span>סטטוס ענן: מחובר</span>
+            <span className="flex items-center gap-1">
+              <Database className="w-3.5 h-3.5 text-indigo-500" />
+              תור שינויים מקומי (IndexedDB): <strong>{pendingQueueCount}</strong>
+            </span>
             {lastSyncTime && <span>סנכרון אחרון: {lastSyncTime}</span>}
           </div>
         </div>
@@ -240,17 +275,17 @@ export const CloudSyncCard: React.FC<CloudSyncCardProps> = ({
       <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-200 text-xs text-slate-700 flex flex-col gap-2">
         <div className="font-black text-slate-900 flex items-center gap-2">
           <Info className="w-4 h-4 text-indigo-600" />
-          <span>כיצד פועלת השמירה בענן ביישומון:</span>
+          <span>כיצד פועלת השמירה ועמידות ה-Offline:</span>
         </div>
         <ul className="space-y-1.5 text-slate-600 leading-relaxed pr-4 list-disc">
           <li>
-            <strong>שמירה כפולה (Offline-first):</strong> כל תשובה ותרגול נשמרים מיד בזיכרון המכשיר המקומי ומועברים ברקע למסד הנתונים בענן (Firestore).
+            <strong>תור מקומי (IndexedDB Offline Queue):</strong> גם כאשר אין קליטת אינטרנט או ה-Wi-Fi מתנתק, כל פתרון תרגיל נרשם ונשמר בתור מקומי מאובטח.
           </li>
           <li>
-            <strong>מעבר בין מכשירים:</strong> פתיחת האפליקציה במכשיר אחר והזנת קוד הענן תטען מיד את כל ההתקדמות, המדליות ויומן הטעויות.
+            <strong>פריקה וסנכרון אוטומטי (Auto-Flush):</strong> ברגע שמתחדש החיבור לרשת, המערכת מזהה זאת מיידית, פורקת את כל התור ל-Firebase ומציגה הודעת אישור (Toast).
           </li>
           <li>
-            <strong>אבטחת מידע ופרטיות:</strong> הנתונים מקודדים תחת מזהה אנונימי ללא צורך ברישום אימייל או פרטים אישיים מזהים.
+            <strong>רציפות למידה:</strong> התלמיד יכול לתרגל בנסיעות, במקלטים או בכיתות ללא קליטה – ללא חשש מאיבוד של אפילו נקודת התקדמות אחת.
           </li>
         </ul>
       </div>

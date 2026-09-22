@@ -6,6 +6,8 @@ import { WeeklyProgressChart } from './WeeklyProgressChart';
 import { ParentPinLock } from './ParentPinLock';
 import { ChangePinModal } from './ChangePinModal';
 import { CloudSyncCard } from './CloudSyncCard';
+import { LinkedStudentsManager } from './LinkedStudentsManager';
+import { UserProfile } from '../../types';
 import {
   ShieldCheck,
   Award,
@@ -20,22 +22,28 @@ import {
   Sparkles,
   HeartHandshake,
   Lock,
-  KeyRound
+  KeyRound,
+  UserCheck
 } from 'lucide-react';
 
 interface ParentDashboardProps {
   progress: StudentProgress;
   onProgressUpdate: (newProg: StudentProgress) => void;
   onBackToStudent: () => void;
+  userProfile: UserProfile;
+  onOpenAuthModal?: () => void;
 }
 
 export const ParentDashboard: React.FC<ParentDashboardProps> = ({
   progress,
   onProgressUpdate,
-  onBackToStudent
+  onBackToStudent,
+  userProfile,
+  onOpenAuthModal
 }) => {
   const [isUnlocked, setIsUnlocked] = useState<boolean>(false);
   const [isChangePinOpen, setIsChangePinOpen] = useState<boolean>(false);
+  const [selectedChildName, setSelectedChildName] = useState<string | null>(null);
   const [report, setReport] = useState<ParentDiagnosticInsight>(() =>
     generateParentDiagnosticReport(progress)
   );
@@ -78,7 +86,13 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
               <span className="text-xs bg-indigo-500/30 text-indigo-300 px-2.5 py-0.5 rounded-full font-bold">
                 אזור הורים ומורים (מאומת)
               </span>
-              <span className="text-xs text-slate-400">תכנית מסלולים פלוס – כיתה ה׳</span>
+              {selectedChildName ? (
+                <span className="text-xs bg-emerald-500/30 text-emerald-300 px-2.5 py-0.5 rounded-full font-bold">
+                  מציג דוח של: {selectedChildName}
+                </span>
+              ) : (
+                <span className="text-xs text-slate-400">תכנית מסלולים פלוס – כיתה ה׳</span>
+              )}
             </div>
             <h1 className="text-2xl md:text-3xl font-black mt-1">דוח פדגוגי וניתוח התקדמות</h1>
           </div>
@@ -165,6 +179,44 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
           <span className="text-[11px] text-slate-400">התמדה מומלצת</span>
         </div>
       </div>
+
+      {/* Linked Children / Students Manager */}
+      {userProfile.role === 'parent' && userProfile.uid ? (
+        <LinkedStudentsManager
+          parentProfile={userProfile}
+          currentProgress={progress}
+          onSelectStudentProgress={(childProg, childName) => {
+            setSelectedChildName(childName);
+            onProgressUpdate(childProg);
+            setReport(generateParentDiagnosticReport(childProg));
+          }}
+        />
+      ) : (
+        <div className="bg-indigo-50/70 border border-indigo-200 p-5 rounded-3xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shrink-0">
+              <UserCheck className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-black text-indigo-950">
+                רוצה לחבר את הטלפון של הילד ולעקוב אחר ההתקדמות מרחוק?
+              </h3>
+              <p className="text-xs text-slate-600 mt-0.5">
+                התחבר לחשבון הורה כדי לייצר קוד כניסה אישי לילד/ה ולנהל מספר פרופילים.
+              </p>
+            </div>
+          </div>
+          {onOpenAuthModal && (
+            <button
+              type="button"
+              onClick={onOpenAuthModal}
+              className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer"
+            >
+              התחבר כהורה 🛡️
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Weekly Progress Bar Chart (Recharts) */}
       <WeeklyProgressChart progress={progress} />

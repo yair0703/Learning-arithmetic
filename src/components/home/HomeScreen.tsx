@@ -1,5 +1,5 @@
 import React from 'react';
-import { TopicInfo, StudentProgress, TopicId } from '../../types';
+import { TopicInfo, StudentProgress, TopicId, UserProfile } from '../../types';
 import { TOPICS } from '../../data/curriculumData';
 import { getRecommendedTopicToReinforce, getTopicMastery } from '../../utils/storage';
 import {
@@ -23,7 +23,9 @@ import {
   GraduationCap,
   Star,
   Check,
-  TrendingUp
+  TrendingUp,
+  User,
+  KeyRound
 } from 'lucide-react';
 
 interface HomeScreenProps {
@@ -35,6 +37,8 @@ interface HomeScreenProps {
   onOpenFindTheMistake: () => void;
   onOpenParentArea: () => void;
   onOpenSandbox: () => void;
+  userProfile?: UserProfile;
+  onOpenAuthModal?: () => void;
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({
@@ -45,7 +49,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onOpenReinforcement,
   onOpenFindTheMistake,
   onOpenParentArea,
-  onOpenSandbox
+  onOpenSandbox,
+  userProfile,
+  onOpenAuthModal
 }) => {
   const recommended = getRecommendedTopicToReinforce(progress);
   const recommendedTopic = TOPICS.find((t) => t.id === recommended.topicId) || TOPICS[1];
@@ -81,8 +87,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-xs px-3 py-1 rounded-full text-xs font-bold mb-2">
             <Sparkles className="w-3.5 h-3.5 text-amber-300" />
             <span>מסלולים פלוס – כיתה ה׳ | שברים – חלק א׳</span>
+            {userProfile?.studentCode && (
+              <span className="bg-white/20 px-2 py-0.5 rounded text-[10px] font-mono">
+                קוד: {userProfile.studentCode}
+              </span>
+            )}
           </div>
-          <h1 className="text-3xl md:text-4xl font-black mb-1">היי! 👋 מה נלמד היום?</h1>
+          <h1 className="text-3xl md:text-4xl font-black mb-1">
+            {userProfile?.displayName ? `שלום ${userProfile.displayName}! 👋 מה נלמד היום?` : 'היי! 👋 מה נלמד היום?'}
+          </h1>
           <p className="text-sm md:text-base text-indigo-100 max-w-xl leading-relaxed">
             המורה הדיגיטלי האישי שלך לחזרה, המחשות ותרגול מהנה של שברים.
           </p>
