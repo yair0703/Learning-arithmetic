@@ -64,6 +64,130 @@ export function getTopicMastery(topicProg?: StudentProgress['topicsProgress'][To
   };
 }
 
+export interface LevelCumulativeProgress {
+  levelNumber: 1 | 2 | 3;
+  levelTitle: string;
+  isUnlocked: boolean;
+  isCurrentLevel: boolean;
+  isCompleted: boolean;
+  solvedCount: number;
+  correctCount: number;
+  accuracyRate: number;
+  requiredCorrectToPass: number;
+  statusHebrew: string;
+  badgeClass: string;
+}
+
+export interface TopicCumulativeProgressStatus {
+  topicId: TopicId;
+  topicTitle: string;
+  currentUnlockedLevel: 1 | 2 | 3;
+  totalExercisesSolved: number;
+  totalCorrectAnswers: number;
+  overallAccuracyRate: number;
+  masteryPercentage: number;
+  masteryStatusHebrew: string;
+  understandCompleted: boolean;
+  togetherCompleted: boolean;
+  levelsProgress: LevelCumulativeProgress[];
+}
+
+export function getTopicCumulativeProgressStatus(
+  progress: StudentProgress,
+  topicId: TopicId
+): TopicCumulativeProgressStatus {
+  const topicInfo = TOPICS.find((t) => t.id === topicId);
+  const topicTitle = topicInfo ? topicInfo.title : topicId;
+  const topicProg = progress.topicsProgress[topicId] || {
+    completedUnderstand: false,
+    completedTogether: false,
+    exercisesSolved: 0,
+    correctCount: 0,
+    currentLevel: 1,
+    consecutiveCorrect: 0,
+    consecutiveIncorrect: 0
+  };
+
+  const mastery = getTopicMastery(topicProg);
+  const totalSolved = topicProg.exercisesSolved || 0;
+  const totalCorrect = topicProg.correctCount || 0;
+  const currentLvl = topicProg.currentLevel || 1;
+  const overallAccuracy = totalSolved > 0 ? Math.round((totalCorrect / totalSolved) * 100) : 0;
+
+  const levelNames: Record<1 | 2 | 3, string> = {
+    1: 'רמה 1 - יסודות והבנת המושג',
+    2: 'רמה 2 - יישום ותרגול מודרך',
+    3: 'רמה 3 - אתגר ושליטה מלאה'
+  };
+
+  const levelsProgress: LevelCumulativeProgress[] = ([1, 2, 3] as const).map((lvl) => {
+    const isUnlocked = lvl === 1 || currentLvl >= lvl || (lvl === 2 && totalCorrect >= 3);
+    const isCurrentLevel = currentLvl === lvl;
+    const isCompleted = currentLvl > lvl || (currentLvl === 3 && lvl === 3 && totalCorrect >= 6);
+
+    let lvlSolved = 0;
+    let lvlCorrect = 0;
+
+    if (totalSolved > 0) {
+      if (currentLvl === lvl) {
+        lvlSolved = Math.max(1, totalSolved - (lvl - 1) * 3);
+        lvlCorrect = Math.max(0, totalCorrect - (lvl - 1) * 2);
+      } else if (currentLvl > lvl) {
+        lvlSolved = 3;
+        lvlCorrect = 3;
+      } else {
+        lvlSolved = 0;
+        lvlCorrect = 0;
+      }
+    }
+
+    const accuracyRate = lvlSolved > 0 ? Math.round((lvlCorrect / lvlSolved) * 100) : 0;
+    const requiredCorrectToPass = lvl === 3 ? 5 : 3;
+
+    let statusHebrew = 'נעולה 🔒';
+    let badgeClass = 'bg-slate-100 text-slate-500 border-slate-200';
+
+    if (isCompleted) {
+      statusHebrew = 'הושלמה בהצלחה ✨';
+      badgeClass = 'bg-emerald-100 text-emerald-800 border-emerald-300';
+    } else if (isCurrentLevel) {
+      statusHebrew = 'רמה פעילה 🎯';
+      badgeClass = 'bg-amber-100 text-amber-900 border-amber-300 font-bold';
+    } else if (isUnlocked) {
+      statusHebrew = 'פתוחה לתרגול 🔓';
+      badgeClass = 'bg-sky-100 text-sky-800 border-sky-200';
+    }
+
+    return {
+      levelNumber: lvl,
+      levelTitle: levelNames[lvl],
+      isUnlocked,
+      isCurrentLevel,
+      isCompleted,
+      solvedCount: lvlSolved,
+      correctCount: lvlCorrect,
+      accuracyRate,
+      requiredCorrectToPass,
+      statusHebrew,
+      badgeClass
+    };
+  });
+
+  return {
+    topicId,
+    topicTitle,
+    currentUnlockedLevel: currentLvl,
+    totalExercisesSolved: totalSolved,
+    totalCorrectAnswers: totalCorrect,
+    overallAccuracyRate: overallAccuracy,
+    masteryPercentage: mastery.percentage,
+    masteryStatusHebrew: mastery.statusHebrew,
+    understandCompleted: topicProg.completedUnderstand || false,
+    togetherCompleted: topicProg.completedTogether || false,
+    levelsProgress
+  };
+}
+
 const STORAGE_KEY = 'maslulim_plus_fractions_v1';
 const PARENT_PIN_KEY = 'maslulim_parent_pin_v1';
 export const DEFAULT_PARENT_PIN = '1234';
