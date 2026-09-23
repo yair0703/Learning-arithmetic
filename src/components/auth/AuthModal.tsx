@@ -46,6 +46,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [studentCodeInput, setStudentCodeInput] = useState<string>('');
   const [studentLoading, setStudentLoading] = useState<boolean>(false);
   const [studentError, setStudentError] = useState<string | null>(null);
+  const [failedStudentAttempts, setFailedStudentAttempts] = useState<number>(0);
+  const [studentLockoutUntil, setStudentLockoutUntil] = useState<number>(0);
 
   // Parent auth states
   const [isRegisterMode, setIsRegisterMode] = useState<boolean>(false);
@@ -74,6 +76,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   // 1. Handle Student Code Login
   const handleStudentLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Check rate-limiting lockout
+    if (studentLockoutUntil && Date.now() < studentLockoutUntil) {
+      const remainingSec = Math.ceil((studentLockoutUntil - Date.now()) / 1000);
+      setStudentError(`נרשמו מספר ניסיונות שגויים רצופים. מטעמי אבטחה, נא להמתין ${remainingSec} שניות ולנסות שוב.`);
+      return;
+    }
+
     if (!studentCodeInput.trim()) {
       setStudentError('נא להזין את קוד התלמיד שקיבלת מההורה');
       return;
@@ -83,10 +93,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setStudentError(null);
 
     try {
-      const cleanCode = studentCodeInput.trim().toUpperCase();
+      const cleanCode = studentCodeInput.trim().replace(/\s+/g, '').toUpperCase();
       const res = await findStudentByLoginCode(cleanCode);
 
       if (res.success && res.progress && res.studentId) {
+        setFailedStudentAttempts(0);
+        setStudentLockoutUntil(0);
         setStudentCloudId(res.studentId);
         saveStudentProgress(res.progress);
 
@@ -101,7 +113,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         onLoginSuccess(profile, res.progress);
         onClose();
       } else {
-        setStudentError(res.error || 'קוד התלמיד לא נמצא. בדוק/י עם ההורה ונסה שוב.');
+        const nextAttempts = failedStudentAttempts + 1;
+        setFailedStudentAttempts(nextAttempts);
+
+        if (nextAttempts >= 5) {
+          const lockoutTime = Date.now() + 60000; // 60 seconds lockout
+          setStudentLockoutUntil(lockoutTime);
+          setFailedStudentAttempts(0);
+          setStudentError('חסימת אבטחה זמנית: 5 ניסיונות כושלים ברצף. נא להמתין 60 שניות ולנסות שוב.');
+        } else {
+          setStudentError(
+            (res.error || 'קוד התלמיד לא נמצא. בדוק/י עם ההורה ונסה שוב.') +
+              ` (ניסיון ${nextAttempts} מתוך 5)`
+          );
+        }
       }
     } catch {
       setStudentError('שגיאה בחיבור למערכת. אנא בדוק את החיבור לרשת ונסה שוב.');
@@ -427,6 +452,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                         value={parentName}
                         onChange={(e) => setParentName(e.target.value)}
                         placeholder="למשל: יאיר"
+                        autoCapitalize="words"
+                        autoCorrect="off"
+                        autoComplete="name"
                         className="w-full bg-slate-50 border border-slate-300 focus:border-indigo-600 focus:bg-white rounded-xl px-3 py-2 text-xs text-slate-800 outline-none"
                       />
                       <User className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
@@ -445,6 +473,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       onChange={(e) => setParentEmail(e.target.value)}
                       placeholder="name@example.com"
                       required
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      autoComplete={isRegisterMode ? 'email' : 'username'}
                       className="w-full bg-slate-50 border border-slate-300 focus:border-indigo-600 focus:bg-white rounded-xl px-3 py-2 text-xs text-slate-800 outline-none"
                     />
                     <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
@@ -462,6 +494,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       onChange={(e) => setParentPassword(e.target.value)}
                       placeholder="לפחות 6 תווים"
                       required
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      autoComplete={isRegisterMode ? 'new-password' : 'current-password'}
                       className="w-full bg-slate-50 border border-slate-300 focus:border-indigo-600 focus:bg-white rounded-xl px-3 py-2 text-xs text-slate-800 outline-none"
                     />
                     <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />

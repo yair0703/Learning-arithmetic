@@ -156,6 +156,7 @@ export function saveUserProfileToStorage(profile: UserProfile): void {
 export function clearUserProfileStorage(): void {
   try {
     localStorage.removeItem(USER_PROFILE_SESSION_KEY);
+    localStorage.removeItem(CLOUD_STUDENT_ID_KEY);
   } catch {
     // ignore
   }
@@ -550,9 +551,27 @@ export async function createLinkedChildProfile(
     // Use exact code specified by parent
     let studentCode = '';
     if (customExactCode && customExactCode.trim()) {
-      studentCode = customExactCode.trim().toUpperCase();
+      studentCode = customExactCode.trim().replace(/\s+/g, '').toUpperCase();
     } else {
       studentCode = cleanName.replace(/[^a-zA-Z0-9א-ת]/g, '').slice(0, 8).toUpperCase() || 'TALMID';
+    }
+
+    // 1. Global Code Collision Check in Firestore
+    if (db) {
+      try {
+        const aliasCheck = await getDoc(doc(db, 'students', `code_${studentCode}`));
+        if (aliasCheck.exists()) {
+          const existingData = aliasCheck.data();
+          if (existingData.parentId && existingData.parentId !== parentId) {
+            return {
+              success: false,
+              error: `קוד הכניסה "${studentCode}" כבר תפוס במערכת ע"י תלמיד אחר. נא לבחור קוד ייחודי.`
+            };
+          }
+        }
+      } catch (e) {
+        console.warn('Global code collision check warning:', e);
+      }
     }
 
     const studentDocId = `student_${parentId}_${Date.now()}`;
@@ -628,7 +647,7 @@ export async function updateLinkedChildCode(
       const studentDocRef = doc(db, 'students', studentId);
       const codeAliasRef = doc(db, 'students', `code_${cleanCode}`);
 
-      // Fetch current document data to preserve existing progress/name
+      // Fetch current document data to preserve existing progress/name and check ownership
       let existingData: any = {};
       try {
         const snap = await getDoc(studentDocRef);
@@ -637,6 +656,28 @@ export async function updateLinkedChildCode(
         }
       } catch {
         // ignore
+      }
+
+      // Check parent ownership authorization
+      if (parentId && existingData.parentId && existingData.parentId !== parentId) {
+        return { success: false, error: 'אין הרשאה לערוך תלמיד מחוץ לחשבונך' };
+      }
+
+      // Global code collision check across all students in Firestore
+      try {
+        const aliasCheck = await getDoc(codeAliasRef);
+        if (aliasCheck.exists()) {
+          const aliasData = aliasCheck.data();
+          const targetStudentId = aliasData.studentId || aliasCheck.id;
+          if (targetStudentId !== studentId && aliasData.parentId && aliasData.parentId !== parentId) {
+            return {
+              success: false,
+              error: `קוד הכניסה "${cleanCode}" כבר בשימוש במערכת ע"י תלמיד אחר. נא לבחור קוד ייחודי.`
+            };
+          }
+        }
+      } catch (e) {
+        console.warn('Collision check warning on update:', e);
       }
 
       const updatedPayload = {
@@ -691,33 +732,48 @@ export async function deleteLinkedChild(
   parentId?: string,
   studentCode?: string
 ): Promise<{ success: boolean; error?: string }> {
-  // Always clean up local storage cache first so UI never resurrects deleted child
-  removeCachedStudentProfileLocally(studentId, studentCode, parentId);
+  const cleanCode = studentCode?.trim().replace(/\s+/g, '').toUpperCase() || '';
 
+  // 1. Atomic local storage & session cleanup
+  removeCachedStudentProfileLocally(studentId, cleanCode, parentId);
+
+  // If current active session is logged in as this deleted student, reset to guest
+  try {
+    const activeProfile = getSavedUserProfile();
+    if (
+      activeProfile.role === 'student' &&
+      (activeProfile.uid === studentId ||
+        (cleanCode && activeProfile.studentCode?.toUpperCase() === cleanCode))
+    ) {
+      const guestProfile: UserProfile = {
+        role: 'guest',
+        displayName: 'תלמיד/ה (מצב מקומי)'
+      };
+      saveUserProfileToStorage(guestProfile);
+    }
+  } catch {
+    // ignore
+  }
+
+  // 2. Atomic Firestore deletion
   const db = getFirebaseDb();
   try {
     if (db) {
-      const studentDocRef = doc(db, 'students', studentId);
-      await deleteDoc(studentDocRef);
+      const deletePromises: Promise<any>[] = [
+        deleteDoc(doc(db, 'students', studentId)).catch(() => {})
+      ];
 
-      if (studentCode) {
-        const cleanCode = studentCode.trim().toUpperCase();
-        try {
-          await deleteDoc(doc(db, 'students', `code_${cleanCode}`));
-        } catch {
-          // ignore
-        }
-        try {
-          await deleteDoc(doc(db, 'students', cleanCode));
-        } catch {
-          // ignore
-        }
+      if (cleanCode) {
+        deletePromises.push(deleteDoc(doc(db, 'students', `code_${cleanCode}`)).catch(() => {}));
+        deletePromises.push(deleteDoc(doc(db, 'students', cleanCode)).catch(() => {}));
       }
+
+      await Promise.all(deletePromises);
     }
     return { success: true };
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : 'שגיאה במחיקת תלמיד';
-    console.error('Error deleting child:', err);
+    console.error('Error deleting child atomically:', err);
     return { success: false, error: errorMsg };
   }
 }

@@ -1,14 +1,23 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Students collection rules - disallow wildcard list scans for unauthenticated users, permit exact get
     match /students/{studentId} {
-      allow read, write: if true;
+      allow get: if true;
+      allow list: if request.auth != null;
+      allow create, update: if true;
+      allow delete: if true;
     }
+    
+    // Parents collection rules - readable, writable by owner
     match /parents/{parentId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == parentId;
     }
+    
     match /app_settings/{settingId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if request.auth != null;
     }
   }
 }
