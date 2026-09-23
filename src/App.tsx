@@ -371,6 +371,17 @@ export default function App() {
               <span>חיזוק נושאים</span>
             </button>
 
+            {/* Fraction Sandbox Button */}
+            <button
+              type="button"
+              onClick={() => setIsSandboxOpen(true)}
+              className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white flex items-center gap-1.5 transition-all shadow-2xs active:scale-95 cursor-pointer shrink-0"
+              title="פתחו את מעבדת השברים האינטראקטיבית"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+              <span>מעבדת שברים 🧪</span>
+            </button>
+
             {/* Parent Area Toggle */}
             <button
               type="button"

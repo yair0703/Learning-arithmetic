@@ -76,6 +76,11 @@ export const StagePractice: React.FC<StagePracticeProps> = ({
   const [showExtraExplanation, setShowExtraExplanation] = useState<boolean>(false);
   const [showExampleDemonstration, setShowExampleDemonstration] = useState<boolean>(false);
   const [showRoadmapModal, setShowRoadmapModal] = useState<boolean>(false);
+  const [misconceptionDetails, setMisconceptionDetails] = useState<{
+    title?: string;
+    explanation?: string;
+    tip?: string;
+  } | null>(null);
 
   const handleSelectLevelFromRoadmap = (levelNum: 1 | 2 | 3) => {
     const freshList = getFreshExercisesForTopic(
@@ -152,6 +157,7 @@ export const StagePractice: React.FC<StagePracticeProps> = ({
 
     if (correct) {
       feedback = 'הצלחת! 👏 כל הכבוד על החשיבה והמאמץ.';
+      setMisconceptionDetails(null);
       try {
         confetti({
           particleCount: 60,
@@ -160,13 +166,31 @@ export const StagePractice: React.FC<StagePracticeProps> = ({
         });
       } catch {}
     } else {
-      feedback = 'לא נורא, בוא נבדוק יחד.';
-      if (chosenOption?.misconceptionExplanation) {
-        feedback += ` ${chosenOption.misconceptionExplanation}`;
-        misconceptionNote = chosenOption.misconceptionExplanation;
-      } else {
-        feedback += ` ${currentExercise.gentleWrongFeedback.default}`;
+      let title = chosenOption?.misconceptionTitle || 'זיהוי טעות נפוצה';
+      let explanation = chosenOption?.misconceptionExplanation || currentExercise.gentleWrongFeedback.default || 'שים לב לפרטים בשאלה.';
+      let tip = chosenOption?.misconceptionTip || '';
+
+      if (!tip) {
+        if (currentExercise.skillTag.includes('same_denom')) {
+          title = title || 'חיבור/חיסור מכנים – טעות נפוצה!';
+          tip = 'זכור: המכנה מציג למה חילקנו את השלם (שם החלק). בחיבור וחיסור שברים בעלי אותו מכנה, המכנה נשאר ללא שינוי!';
+        } else if (currentExercise.skillTag.includes('number_line')) {
+          title = title || 'ספירת מרווחים (צעדים)';
+          tip = 'כאשר מזהים שבר על ישר המספרים, סופרים את המרווחים מ-0 עד 1 ולא את השנתות (הקווים).';
+        } else if (currentExercise.skillTag.includes('mixed')) {
+          title = title || 'הפיכה בין שבר מדומה למספר מעורב';
+          tip = 'בדוק כמה שלמים מלאים נכנסים במונה (חלוקה במכנה), וכמה חלקים נשארים כשארית.';
+        } else if (currentExercise.skillTag.includes('quantity')) {
+          title = title || 'חישוב חלק מתוך כמות';
+          tip = 'קודם מחלקים במכנה (מוצאים כמה יש בחלק אחד) ואז כופלים במונה!';
+        } else {
+          tip = 'היעזר בלחצן "רמז נוסף" או פתח את "מעבדת השברים 🧪" להמחשה חזותית.';
+        }
       }
+
+      setMisconceptionDetails({ title, explanation, tip });
+      misconceptionNote = `${title}: ${explanation} (${tip})`;
+      feedback = explanation;
     }
 
     setFeedbackMessage(feedback);
@@ -624,23 +648,43 @@ export const StagePractice: React.FC<StagePracticeProps> = ({
           </div>
         )}
 
-        {/* Feedback Alert */}
+        {/* Feedback Alert / Smart Misconception Card */}
         {isAnswered && (
           <div
-            className={`p-4 rounded-2xl flex items-start gap-3 border animate-in fade-in duration-200 ${
+            className={`p-4 md:p-5 rounded-2xl flex items-start gap-3.5 border animate-in fade-in duration-200 ${
               isCorrect
-                ? 'bg-emerald-50/80 border-emerald-200 text-emerald-900'
-                : 'bg-rose-50/80 border-rose-200 text-rose-900'
+                ? 'bg-emerald-50/90 border-emerald-300 text-emerald-950 shadow-xs'
+                : 'bg-rose-50/90 border-rose-300 text-rose-950 shadow-xs'
             }`}
           >
             {isCorrect ? (
-              <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+              <CheckCircle2 className="w-6 h-6 text-emerald-600 flex-shrink-0 mt-0.5" />
             ) : (
-              <AlertCircle className="w-5 h-5 text-rose-500 flex-shrink-0 mt-0.5" />
+              <AlertCircle className="w-6 h-6 text-rose-600 flex-shrink-0 mt-0.5" />
             )}
-            <div className="flex flex-col gap-1 text-xs md:text-sm">
-              <span className="font-bold">{isCorrect ? 'נכון מאוד!' : 'שים לב:'}</span>
-              <p className="leading-relaxed">{feedbackMessage}</p>
+            <div className="flex flex-col gap-1.5 text-xs md:text-sm flex-1">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-black text-sm md:text-base">
+                  {isCorrect ? 'נכון מאוד! 👏' : misconceptionDetails?.title || 'שים לב:'}
+                </span>
+                {!isCorrect && (
+                  <span className="text-[10px] bg-rose-200/80 text-rose-900 font-bold px-2 py-0.5 rounded-full">
+                    אבחון פדגוגי לטעות
+                  </span>
+                )}
+              </div>
+              <p className="leading-relaxed text-slate-800 font-medium">
+                {feedbackMessage}
+              </p>
+              {!isCorrect && misconceptionDetails?.tip && (
+                <div className="mt-2 p-3 bg-white/80 rounded-xl border border-rose-200 text-xs text-rose-900 font-medium flex items-start gap-2 shadow-2xs">
+                  <Lightbulb className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                  <div>
+                    <strong className="font-bold text-rose-950">טיפ למניעת הטעות: </strong>
+                    <span>{misconceptionDetails.tip}</span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -761,18 +805,39 @@ export const StagePractice: React.FC<StagePracticeProps> = ({
           </div>
         </div>
 
-        {/* Revealed Hints Section */}
+        {/* Revealed Hints Section - Progressive Scaffolding Steps */}
         {currentHintStep > 0 && (
-          <div className="bg-amber-50/90 border border-amber-200 p-4 rounded-2xl flex flex-col gap-2 animate-in fade-in duration-200">
-            <span className="text-xs font-bold text-amber-800 flex items-center gap-1.5">
-              <Lightbulb className="w-4 h-4 text-amber-600" />
-              רמזים לפיתרון:
-            </span>
-            {currentExercise.hintSteps.slice(0, currentHintStep).map((hint, hIdx) => (
-              <p key={hIdx} className="text-xs md:text-sm text-amber-900 leading-relaxed font-medium">
-                • {hint}
-              </p>
-            ))}
+          <div className="bg-amber-50/90 border border-amber-300 p-4 rounded-2xl flex flex-col gap-3 animate-in fade-in duration-200">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                <Lightbulb className="w-4.5 h-4.5 text-amber-600" />
+                <span>רמזים ומנגנון פיגום מדורג ({currentHintStep} מתוך {currentExercise.hintSteps.length}):</span>
+              </span>
+              <span className="text-[10px] bg-amber-200/80 text-amber-900 font-bold px-2 py-0.5 rounded-full">
+                תמיכה בלמידה
+              </span>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              {currentExercise.hintSteps.slice(0, currentHintStep).map((hint, hIdx) => {
+                const stepLabels = ['כיוון למחשבה 💡', 'עוגן חזותי/ויזואלי 👁️', 'צעד מנחה כמעט פתור ✏️'];
+                return (
+                  <div key={hIdx} className="bg-white/90 p-3 rounded-xl border border-amber-200 flex items-start gap-2.5">
+                    <span className="w-6 h-6 rounded-full bg-amber-500 text-white text-xs font-black flex items-center justify-center shrink-0 mt-0.5">
+                      {hIdx + 1}
+                    </span>
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-[11px] font-bold text-amber-800">
+                        {stepLabels[hIdx] || `רמז ${hIdx + 1}`}
+                      </span>
+                      <p className="text-xs md:text-sm text-slate-800 leading-relaxed font-medium">
+                        {hint}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
 

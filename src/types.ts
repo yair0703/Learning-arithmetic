@@ -45,7 +45,9 @@ export interface ExerciseChoiceOption {
   id: string;
   label: string; // e.g. "3/5" or "2 1/4" or Hebrew text
   isCorrect: boolean;
+  misconceptionTitle?: string;
   misconceptionExplanation?: string;
+  misconceptionTip?: string;
 }
 
 export interface Exercise {
