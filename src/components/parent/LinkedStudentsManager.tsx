@@ -281,37 +281,42 @@ export const LinkedStudentsManager: React.FC<LinkedStudentsManagerProps> = ({
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-          {children.map((child) => (
-            <div
-              key={child.studentId}
-              className="bg-slate-50 hover:bg-indigo-50/40 border border-slate-200 hover:border-indigo-200 p-4 rounded-2xl transition-all flex flex-col justify-between gap-3 shadow-2xs"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 text-white font-black text-sm flex items-center justify-center shadow-xs shrink-0">
-                    {child.studentName.slice(0, 1)}
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-black text-slate-900">{child.studentName}</h3>
-                    <p className="text-[11px] text-slate-500 mt-0.5">חיבור Magic Link פעיל 🟢</p>
-                  </div>
-                </div>
+          {children.map((child) => {
+            if (!child || !child.studentId) return null;
+            const displayName = child.studentName || 'תלמיד/ה';
+            const initialLetter = displayName.trim().charAt(0) || '🎓';
 
-                {/* Actions & Accuracy */}
-                <div className="flex items-center gap-1.5">
-                  <span className="inline-block bg-emerald-100 text-emerald-800 text-[11px] font-black px-2 py-0.5 rounded-full font-mono">
-                    {child.accuracyRate || 0}% הצלחה
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteChild(child)}
-                    className="text-slate-300 hover:text-rose-600 p-1 transition-colors cursor-pointer"
-                    title="מחק תלמיד"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+            return (
+              <div
+                key={child.studentId}
+                className="bg-slate-50 hover:bg-indigo-50/40 border border-slate-200 hover:border-indigo-200 p-4 rounded-2xl transition-all flex flex-col justify-between gap-3 shadow-2xs"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 text-white font-black text-sm flex items-center justify-center shadow-xs shrink-0">
+                      {initialLetter}
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-black text-slate-900">{displayName}</h3>
+                      <p className="text-[11px] text-slate-500 mt-0.5">חיבור Magic Link פעיל 🟢</p>
+                    </div>
+                  </div>
+
+                  {/* Actions & Accuracy */}
+                  <div className="flex items-center gap-1.5">
+                    <span className="inline-block bg-emerald-100 text-emerald-800 text-[11px] font-black px-2 py-0.5 rounded-full font-mono">
+                      {child.accuracyRate || 0}% הצלחה
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteChild(child)}
+                      className="text-slate-300 hover:text-rose-600 p-1 transition-colors cursor-pointer"
+                      title="מחק תלמיד"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
-              </div>
 
               {/* Magic Link & Share buttons */}
               <div className="flex flex-wrap items-center gap-1.5 bg-white p-2 rounded-xl border border-slate-200">
@@ -370,7 +375,8 @@ export const LinkedStudentsManager: React.FC<LinkedStudentsManagerProps> = ({
                 </button>
               </div>
             </div>
-          ))}
+          );
+        })}
         </div>
       )}
 

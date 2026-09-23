@@ -491,17 +491,34 @@ export function findCachedStudentByCode(code: string): { student?: LinkedStudent
   return null;
 }
 
-export function removeCachedStudentProfileLocally(studentId: string, studentCode?: string, parentId?: string): void {
+export function removeCachedStudentProfileLocally(
+  studentId: string,
+  studentCodeOrToken?: string,
+  parentId?: string
+): void {
   try {
-    // 1. Remove from all known students map
+    const cleanId = studentId ? studentId.toUpperCase() : '';
+    const cleanToken = studentCodeOrToken ? studentCodeOrToken.toUpperCase() : '';
+
+    // 1. Remove from all known students map completely
     const raw = localStorage.getItem(ALL_KNOWN_STUDENTS_CACHE_KEY);
     if (raw) {
-      const map = JSON.parse(raw);
-      if (studentId) delete map[studentId.toUpperCase()];
-      if (studentCode) {
-        delete map[studentCode.toUpperCase()];
-        delete map[`CODE_${studentCode.toUpperCase()}`];
-      }
+      const map: Record<string, { student: LinkedStudentProfile; progress?: StudentProgress }> = JSON.parse(raw);
+
+      Object.keys(map).forEach((key) => {
+        const entry = map[key];
+        const entryId = entry?.student?.studentId ? entry.student.studentId.toUpperCase() : '';
+        const entryToken = entry?.student?.magicToken ? entry.student.magicToken.toUpperCase() : '';
+        const entryCode = entry?.student?.studentCode ? entry.student.studentCode.toUpperCase() : '';
+
+        if (
+          (cleanId && (key === cleanId || entryId === cleanId)) ||
+          (cleanToken && (key === cleanToken || entryToken === cleanToken || entryCode === cleanToken))
+        ) {
+          delete map[key];
+        }
+      });
+
       localStorage.setItem(ALL_KNOWN_STUDENTS_CACHE_KEY, JSON.stringify(map));
     }
 
@@ -509,23 +526,23 @@ export function removeCachedStudentProfileLocally(studentId: string, studentCode
     if (parentId) {
       const parentChildren = getCachedChildrenForParent(parentId);
       const filtered = parentChildren.filter(
-        (c) => c.studentId !== studentId && c.studentCode?.toUpperCase() !== studentCode?.toUpperCase()
+        (c) => c && c.studentId !== studentId && c.magicToken !== studentCodeOrToken
       );
       saveCachedChildrenForParent(parentId, filtered);
-    } else {
-      // Clear from all cached parent keys in localStorage
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith(LINKED_CHILDREN_CACHE_PREFIX)) {
-          try {
-            const children: LinkedStudentProfile[] = JSON.parse(localStorage.getItem(key) || '[]');
-            const filtered = children.filter(
-              (c) => c.studentId !== studentId && c.studentCode?.toUpperCase() !== studentCode?.toUpperCase()
-            );
-            localStorage.setItem(key, JSON.stringify(filtered));
-          } catch {
-            // ignore
-          }
+    }
+
+    // 3. Clear from all cached parent keys in localStorage
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith(LINKED_CHILDREN_CACHE_PREFIX)) {
+        try {
+          const children: LinkedStudentProfile[] = JSON.parse(localStorage.getItem(key) || '[]');
+          const filtered = children.filter(
+            (c) => c && c.studentId !== studentId && c.magicToken !== studentCodeOrToken
+          );
+          localStorage.setItem(key, JSON.stringify(filtered));
+        } catch {
+          // ignore
         }
       }
     }
@@ -534,17 +551,35 @@ export function removeCachedStudentProfileLocally(studentId: string, studentCode
   }
 }
 
+export function clearAllCachedStudentsFromDevice(): void {
+  try {
+    localStorage.removeItem(ALL_KNOWN_STUDENTS_CACHE_KEY);
+  } catch {
+    // ignore
+  }
+}
+
 /**
  * Constructs the Magic Link URL for a student profile
  */
 export function getMagicLinkUrl(student: LinkedStudentProfile): string {
-  const token = student.magicToken || student.studentId;
+  const token = student?.magicToken || student?.studentId || '';
   const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
   return `${baseUrl}/?studentToken=${encodeURIComponent(token)}`;
 }
 
 /**
- * Gets all student profiles saved on this device for 1-click quick login
+ * Gets a short display representation of a Magic Token or Student ID
+ */
+export function getShortTokenDisplay(tokenOrId?: string): string {
+  if (!tokenOrId) return '';
+  const clean = tokenOrId.trim();
+  if (clean.length <= 10) return clean;
+  return `${clean.slice(0, 5)}...${clean.slice(-4)}`;
+}
+
+/**
+ * Gets all student profiles saved on this device for 1-click quick login (deduplicated & sorted)
  */
 export function getAllCachedStudentsOnDevice(): LinkedStudentProfile[] {
   try {
@@ -561,7 +596,12 @@ export function getAllCachedStudentsOnDevice(): LinkedStudentProfile[] {
       }
     });
 
-    return list;
+    // Deduplicate and sort by last active date or creation date (most recent first)
+    return list.sort((a, b) => {
+      const dateA = a.lastActiveDate || a.createdAt || '';
+      const dateB = b.lastActiveDate || b.createdAt || '';
+      return dateB.localeCompare(dateA);
+    });
   } catch {
     return [];
   }

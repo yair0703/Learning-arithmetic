@@ -28,6 +28,7 @@ import { ParentDashboard } from './components/parent/ParentDashboard';
 import { FractionSandboxModal } from './components/visuals/FractionSandboxModal';
 import { FindTheMistakeModal } from './components/practice/FindTheMistakeModal';
 import { AuthModal } from './components/auth/AuthModal';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 import {
   Sparkles,
   Flame,
@@ -551,40 +552,42 @@ export default function App() {
       </main>
 
       {/* Auth Modal (Parent login & Student simple code login) */}
-      <AuthModal
-        isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
-        defaultTab={authDefaultTab}
-        onLoginSuccess={async (profile) => {
-          setUserProfile(profile);
-          if (profile.role === 'student' && profile.uid) {
-            setStudentCloudId(profile.uid);
-            // Load cloud progress if available
-            const cloudRes = await loadStudentProgressFromCloud(profile.uid);
-            if (cloudRes.success && cloudRes.data) {
-              saveStudentProgress(cloudRes.data);
-              setProgress(cloudRes.data);
+      <ErrorBoundary fallbackTitle="שגיאה במסך התחברות">
+        <AuthModal
+          isOpen={isAuthModalOpen}
+          onClose={() => setIsAuthModalOpen(false)}
+          defaultTab={authDefaultTab}
+          onLoginSuccess={async (profile) => {
+            setUserProfile(profile);
+            if (profile.role === 'student' && profile.uid) {
+              setStudentCloudId(profile.uid);
+              // Load cloud progress if available
+              const cloudRes = await loadStudentProgressFromCloud(profile.uid);
+              if (cloudRes.success && cloudRes.data) {
+                saveStudentProgress(cloudRes.data);
+                setProgress(cloudRes.data);
+                addToast({
+                  type: 'success',
+                  title: `שלום ${profile.displayName}! 🌟`,
+                  description: 'הנתונים וההתקדמות שלך נטענו בהצלחה מהענן'
+                });
+              } else {
+                addToast({
+                  type: 'success',
+                  title: `שלום ${profile.displayName}! 🌟`,
+                  description: `מחובר עם קוד אישי ${profile.studentCode || ''}`
+                });
+              }
+            } else if (profile.role === 'parent') {
               addToast({
                 type: 'success',
-                title: `שלום ${profile.displayName}! 🌟`,
-                description: 'הנתונים וההתקדמות שלך נטענו בהצלחה מהענן'
-              });
-            } else {
-              addToast({
-                type: 'success',
-                title: `שלום ${profile.displayName}! 🌟`,
-                description: `מחובר עם קוד אישי ${profile.studentCode || ''}`
+                title: `שלום ${profile.displayName || 'הורה'}! 🛡️`,
+                description: 'התחברת בהצלחה לחשבון הורה – כעת תוכל לצפות בילדים המקושרים'
               });
             }
-          } else if (profile.role === 'parent') {
-            addToast({
-              type: 'success',
-              title: `שלום ${profile.displayName || 'הורה'}! 🛡️`,
-              description: 'התחברת בהצלחה לחשבון הורה – כעת תוכל לצפות בילדים המקושרים'
-            });
-          }
-        }}
-      />
+          }}
+        />
+      </ErrorBoundary>
 
       {/* Interactive Fraction Sandbox Scratchpad Modal */}
       <FractionSandboxModal

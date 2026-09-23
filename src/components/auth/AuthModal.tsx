@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Sparkles,
   ShieldCheck,
@@ -12,7 +12,8 @@ import {
   RefreshCw,
   QrCode,
   Share2,
-  Check
+  Check,
+  Trash2
 } from 'lucide-react';
 import {
   loginParentWithGoogle,
@@ -23,7 +24,10 @@ import {
   getSavedUserProfile,
   logoutUser,
   setStudentCloudId,
-  getAllCachedStudentsOnDevice
+  getAllCachedStudentsOnDevice,
+  removeCachedStudentProfileLocally,
+  clearAllCachedStudentsFromDevice,
+  getShortTokenDisplay
 } from '../../utils/firebase';
 import { UserProfile, StudentProgress, LinkedStudentProfile } from '../../types';
 import { saveStudentProgress } from '../../utils/storage';
@@ -43,6 +47,29 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'student' | 'parent'>(defaultTab);
 
+  // Saved students list state on device
+  const [savedStudentsList, setSavedStudentsList] = useState<LinkedStudentProfile[]>(() => getAllCachedStudentsOnDevice());
+
+  // Refresh saved list whenever modal opens or tab changes
+  useEffect(() => {
+    if (isOpen) {
+      setSavedStudentsList(getAllCachedStudentsOnDevice());
+    }
+  }, [isOpen, activeTab]);
+
+  const handleRemoveSingleSavedProfile = (e: React.MouseEvent, child: LinkedStudentProfile) => {
+    e.stopPropagation();
+    removeCachedStudentProfileLocally(child.studentId, child.magicToken || child.studentCode);
+    setSavedStudentsList((prev) => prev.filter((c) => c.studentId !== child.studentId));
+  };
+
+  const handleClearAllSavedProfiles = () => {
+    if (window.confirm('האם אתה בטוח שברצונך לנקות את כל הפרופילים השמורים במכשיר זה?')) {
+      clearAllCachedStudentsFromDevice();
+      setSavedStudentsList([]);
+    }
+  };
+
   // Student Magic Link input state
   const [magicTokenInput, setMagicTokenInput] = useState<string>('');
   const [studentLoading, setStudentLoading] = useState<boolean>(false);
@@ -57,7 +84,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [parentError, setParentError] = useState<string | null>(null);
 
   const currentSavedProfile = getSavedUserProfile();
-  const savedStudentsOnDevice = getAllCachedStudentsOnDevice();
 
   const handleLogoutCurrentProfile = async () => {
     await logoutUser();
@@ -335,32 +361,70 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </div>
 
               {/* Saved Children Cards for 1-Click Login on this device */}
-              {savedStudentsOnDevice.length > 0 && (
-                <div className="flex flex-col gap-2">
-                  <label className="block text-xs font-bold text-slate-700">
-                    פרופילים שמורים במכשיר זה (התחברות בלחיצה אחת):
-                  </label>
-                  <div className="grid grid-cols-1 gap-2">
-                    {savedStudentsOnDevice.map((child) => (
-                      <button
-                        key={child.studentId}
-                        type="button"
-                        onClick={() => handleQuickStudentLogin(child)}
-                        disabled={studentLoading}
-                        className="p-3 bg-indigo-50/80 hover:bg-indigo-100 border border-indigo-200 rounded-2xl flex items-center justify-between transition-all cursor-pointer group"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white font-black text-sm flex items-center justify-center shadow-xs">
-                            {child.studentName.slice(0, 1)}
+              {savedStudentsList.length > 0 && (
+                <div className="flex flex-col gap-2.5 bg-slate-50/90 p-3.5 rounded-2xl border border-slate-200">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-black text-slate-800 flex items-center gap-1.5">
+                      <span>פרופילים שמורים במכשיר זה</span>
+                      <span className="bg-indigo-100 text-indigo-800 text-[10px] px-2 py-0.2 rounded-full font-bold">
+                        {savedStudentsList.length}
+                      </span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleClearAllSavedProfiles}
+                      className="text-[11px] font-bold text-rose-600 hover:text-rose-800 hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      <span>נקה פרופילים ישנים</span>
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-2 max-h-52 overflow-y-auto pr-0.5">
+                    {savedStudentsList.map((child) => {
+                      if (!child || !child.studentId) return null;
+                      const shortId = getShortTokenDisplay(child.magicToken || child.studentCode || child.studentId);
+                      const displayName = child.studentName || 'תלמיד/ה';
+
+                      return (
+                        <div
+                          key={child.studentId}
+                          onClick={() => handleQuickStudentLogin(child)}
+                          className="p-3 bg-white hover:bg-indigo-50/70 border border-slate-200 hover:border-indigo-300 rounded-2xl flex items-center justify-between transition-all cursor-pointer group shadow-2xs"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white font-black text-xs flex items-center justify-center shadow-xs shrink-0">
+                              {displayName.trim().charAt(0) || '🎓'}
+                            </div>
+                            <div className="text-right min-w-0">
+                              <div className="font-black text-slate-900 text-xs truncate">
+                                {displayName}
+                              </div>
+                              <div className="flex items-center gap-2 text-[10px] text-slate-500 font-medium mt-0.5">
+                                <span className="bg-indigo-50 text-indigo-700 font-mono px-1.5 py-0.2 rounded-md font-bold">
+                                  ID: {shortId}
+                                </span>
+                                {child.lastActiveDate && (
+                                  <span>כניסה אחרונה: {child.lastActiveDate}</span>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                          <div className="text-right">
-                            <div className="font-black text-slate-900 text-xs">{child.studentName}</div>
-                            <div className="text-[10px] text-indigo-700 font-medium">התחברות בלחיצה אחת</div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              type="button"
+                              onClick={(e) => handleRemoveSingleSavedProfile(e, child)}
+                              className="p-1.5 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                              title="הסר פרופיל שמור ממכשיר זה"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                            <ArrowRight className="w-4 h-4 text-indigo-600 rotate-180 group-hover:-translate-x-1 transition-transform" />
                           </div>
                         </div>
-                        <ArrowRight className="w-4 h-4 text-indigo-600 rotate-180 group-hover:-translate-x-1 transition-transform" />
-                      </button>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}

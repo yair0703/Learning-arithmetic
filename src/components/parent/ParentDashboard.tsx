@@ -7,6 +7,7 @@ import { ParentPinLock } from './ParentPinLock';
 import { ChangePinModal } from './ChangePinModal';
 import { CloudSyncCard } from './CloudSyncCard';
 import { LinkedStudentsManager } from './LinkedStudentsManager';
+import { ErrorBoundary } from '../common/ErrorBoundary';
 import { UserProfile } from '../../types';
 import {
   ShieldCheck,
@@ -181,15 +182,17 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
       </div>
 
       {/* Linked Children / Students Manager */}
-      <LinkedStudentsManager
-        parentProfile={userProfile.uid ? userProfile : { role: 'parent', uid: 'parent_local', displayName: userProfile.displayName || 'חשבון הורה' }}
-        currentProgress={progress}
-        onSelectStudentProgress={(childProg, childName) => {
-          setSelectedChildName(childName);
-          onProgressUpdate(childProg);
-          setReport(generateParentDiagnosticReport(childProg));
-        }}
-      />
+      <ErrorBoundary fallbackTitle="שגיאה בטעינת מנהל התלמידים">
+        <LinkedStudentsManager
+          parentProfile={userProfile.uid ? userProfile : { role: 'parent', uid: 'parent_local', displayName: userProfile.displayName || 'חשבון הורה' }}
+          currentProgress={progress}
+          onSelectStudentProgress={(childProg, childName) => {
+            setSelectedChildName(childName);
+            onProgressUpdate(childProg);
+            setReport(generateParentDiagnosticReport(childProg));
+          }}
+        />
+      </ErrorBoundary>
 
       {/* Weekly Progress Bar Chart (Recharts) */}
       <WeeklyProgressChart progress={progress} />
