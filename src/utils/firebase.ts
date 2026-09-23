@@ -696,11 +696,12 @@ export async function getLinkedChildrenForParent(
       const totalSolved = data.totalSolved || 0;
       const totalCorrect = data.totalCorrect || 0;
       const accuracyRate = totalSolved > 0 ? Math.round((totalCorrect / totalSolved) * 100) : 0;
+      const studentCode = (data.studentCode || docSnap.id).toString().trim().toUpperCase();
 
       const studentItem: LinkedStudentProfile = {
         studentId: docSnap.id,
         studentName: data.studentName || 'תלמיד/ה',
-        studentCode: data.studentCode || docSnap.id,
+        studentCode,
         parentId: data.parentId || parentId,
         createdAt: data.createdAt || new Date().toISOString(),
         lastActiveDate: data.lastActiveDate,
@@ -711,6 +712,12 @@ export async function getLinkedChildrenForParent(
 
       list.push(studentItem);
       saveCachedStudentProfileLocally(studentItem, data as StudentProgress);
+
+      // Auto-backfill alias document code_XXXX in Firestore for legacy students
+      if (db && studentCode) {
+        const aliasRef = doc(db, 'students', `code_${studentCode}`);
+        setDoc(aliasRef, { ...data, studentCode, studentId: docSnap.id }, { merge: true }).catch(() => {});
+      }
     });
 
     saveCachedChildrenForParent(parentId, list);
@@ -754,35 +761,30 @@ export async function findStudentByLoginCode(
     const studentsRef = collection(db, 'students');
     const q = query(studentsRef, where('studentCode', '==', cleanCode));
 
-    const checkCloudPromise = async () => {
-      // 1. Check O(1) alias document code_2016
-      try {
-        const aliasSnap = await getDoc(codeAliasRef);
-        if (aliasSnap.exists()) return aliasSnap;
-      } catch {
-        // ignore
-      }
+    // Parallel execution: resolves as soon as ANY valid document is found
+    const checkCloudPromise = () =>
+      new Promise<any>((resolve) => {
+        let resolved = false;
+        let pending = 3;
 
-      // 2. Check O(1) direct doc ID
-      try {
-        const directSnap = await getDoc(directDocRef);
-        if (directSnap.exists()) return directSnap;
-      } catch {
-        // ignore
-      }
+        const onResult = (snap: any) => {
+          if (resolved) return;
+          if (snap && snap.exists && snap.exists()) {
+            resolved = true;
+            resolve(snap);
+          } else {
+            pending--;
+            if (pending <= 0 && !resolved) {
+              resolved = true;
+              resolve(null);
+            }
+          }
+        };
 
-      // 3. Collection query by studentCode
-      try {
-        const querySnap = await getDocs(q);
-        if (!querySnap.empty) {
-          return querySnap.docs[0];
-        }
-      } catch {
-        // ignore
-      }
-
-      return null;
-    };
+        getDoc(codeAliasRef).then(onResult).catch(() => onResult(null));
+        getDoc(directDocRef).then(onResult).catch(() => onResult(null));
+        getDocs(q).then((s) => onResult(!s.empty ? s.docs[0] : null)).catch(() => onResult(null));
+      });
 
     const timeoutPromise = new Promise<null>((_, reject) =>
       setTimeout(() => reject(new Error('timeout')), timeoutMs)

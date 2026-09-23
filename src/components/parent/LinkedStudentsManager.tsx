@@ -95,8 +95,15 @@ export const LinkedStudentsManager: React.FC<LinkedStudentsManagerProps> = ({
       setErrorMsg('נא להזין את שם התלמיד/ה');
       return;
     }
-    if (!newExactCode.trim()) {
-      setErrorMsg('נא להזין קוד כניסה לתלמיד (למשל: 1234)');
+    const targetCode = newExactCode.replace(/\s+/g, '').toUpperCase();
+    if (!targetCode) {
+      setErrorMsg('נא להזין קוד כניסה לתלמיד (למשל: 1234 או 2016)');
+      return;
+    }
+
+    const isDuplicateCode = children.some((c) => c.studentCode?.toUpperCase() === targetCode);
+    if (isDuplicateCode) {
+      setErrorMsg(`קוד הכניסה "${targetCode}" כבר משויך לילד/ה אחר/ת ברשימה שלך. נא לבחור קוד ייחודי.`);
       return;
     }
 

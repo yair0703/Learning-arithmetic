@@ -302,14 +302,37 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <label className="block text-xs font-bold text-slate-700 mb-1.5">
                     קוד תלמיד אישי:
                   </label>
-                  <input
-                    type="text"
-                    value={studentCodeInput}
-                    onChange={(e) => setStudentCodeInput(e.target.value)}
-                    placeholder="הזן/הזיני קוד (למשל: ITAY-482)"
-                    className="w-full bg-slate-50 border-2 border-slate-300 focus:border-indigo-600 focus:bg-white rounded-2xl px-4 py-3 text-sm font-mono font-black uppercase text-center tracking-wider transition-all outline-none"
-                    autoFocus
-                  />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={studentCodeInput}
+                      onChange={(e) => {
+                        const cleanVal = e.target.value.replace(/\s+/g, '').toUpperCase();
+                        setStudentCodeInput(cleanVal);
+                        setStudentError(null);
+                      }}
+                      placeholder="הזן/הזיני קוד (למשל: 2016 או ITAY-482)"
+                      className="w-full bg-slate-50 border-2 border-slate-300 focus:border-indigo-600 focus:bg-white rounded-2xl px-4 py-3 text.base font-mono font-black uppercase text-center tracking-wider transition-all outline-none"
+                      autoFocus
+                      autoCapitalize="characters"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      inputMode="text"
+                    />
+                    {studentCodeInput && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setStudentCodeInput('');
+                          setStudentError(null);
+                        }}
+                        className="absolute left-3 top-3.5 text-slate-400 hover:text-slate-600 p-1 rounded-full text-xs cursor-pointer"
+                        title="נקה קוד"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {studentError && (
