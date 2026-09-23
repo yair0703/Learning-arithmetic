@@ -9,7 +9,8 @@ import {
   getSavedUserProfile,
   saveUserProfileToStorage,
   logoutUser,
-  getFirebaseAuth
+  getFirebaseAuth,
+  ensureAuthSession
 } from './utils/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import {
@@ -165,6 +166,9 @@ export default function App() {
       setPendingQueueCount(queueCount);
 
       if (navigator.onLine) {
+        // Ensure an active Firebase Auth token (anonymous for students)
+        await ensureAuthSession();
+
         if (queueCount > 0) {
           await processOfflineQueue(false);
         } else if (progress.totalSolved === 0) {

@@ -21,6 +21,7 @@ import {
   GoogleAuthProvider,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  signInAnonymously,
   updateProfile,
   signOut,
   onAuthStateChanged,
@@ -101,6 +102,26 @@ export function getFirebaseAuth(): Auth | null {
     return authInstance;
   } catch (error) {
     console.error('Failed to initialize Firebase Auth:', error);
+    return null;
+  }
+}
+
+/**
+ * Ensures an active Firebase Auth session (anonymous token for student guests if unauthenticated)
+ */
+export async function ensureAuthSession(): Promise<User | null> {
+  const auth = getFirebaseAuth();
+  if (!auth) return null;
+
+  if (auth.currentUser) {
+    return auth.currentUser;
+  }
+
+  try {
+    const userCred = await signInAnonymously(auth);
+    return userCred.user;
+  } catch (err) {
+    console.warn('Anonymous sign-in skipped or failed:', err);
     return null;
   }
 }
@@ -752,6 +773,9 @@ export async function findStudentByLoginCode(
     }
     return { success: false, error: 'מסד הנתונים בענן אינו זמין כרגע במצב לא מקוון' };
   }
+
+  // Ensure an active auth session for guest/student devices
+  await ensureAuthSession();
 
   try {
     const timeoutMs = 12000; // 12 seconds timeout for mobile network
