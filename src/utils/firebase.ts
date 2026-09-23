@@ -70,25 +70,12 @@ export function getFirebaseDb(): Firestore | null {
   if (!app) return null;
 
   try {
-    const databaseId = firebaseConfigJson.firestoreDatabaseId;
-    if (databaseId && databaseId !== '(default)') {
-      try {
-        dbInstance = getFirestore(app, databaseId);
-      } catch {
-        dbInstance = getFirestore(app);
-      }
-    } else {
-      dbInstance = getFirestore(app);
-    }
+    // Explicitly use the default Firestore database as requested
+    dbInstance = getFirestore(app);
     return dbInstance;
   } catch (error) {
-    console.error('Failed to initialize Firebase Firestore:', error);
-    try {
-      dbInstance = getFirestore(app);
-      return dbInstance;
-    } catch {
-      return null;
-    }
+    console.error('Failed to initialize Firebase Firestore (default):', error);
+    return null;
   }
 }
 
@@ -631,11 +618,22 @@ export async function createLinkedChildProfile(
             updatedAt: new Date().toISOString()
           };
 
+          const tokenRecord = {
+            token: magicToken,
+            studentId: studentDocId,
+            studentName: cleanName,
+            parentId,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          };
+
           const studentDocRef = doc(db, 'students', studentDocId);
+          const studentTokensRef = doc(db, 'studentTokens', magicToken);
           const tokenAliasDocRef = doc(db, 'students', `token_${magicToken}`);
 
           return Promise.all([
             setDoc(studentDocRef, payload, { merge: true }),
+            setDoc(studentTokensRef, tokenRecord, { merge: true }),
             setDoc(tokenAliasDocRef, payload, { merge: true })
           ]);
         })
@@ -685,17 +683,48 @@ export async function findStudentByMagicToken(
   await ensureAuthSession();
 
   try {
+    // Attempt 1: Look up token in dedicated 'studentTokens' collection
+    let resolvedStudentId = cleanToken;
+    try {
+      const tokenDocRef = doc(db, 'studentTokens', cleanToken);
+      const tokenSnap = await getDoc(tokenDocRef);
+      if (tokenSnap.exists() && tokenSnap.data()?.studentId) {
+        resolvedStudentId = tokenSnap.data().studentId;
+      }
+    } catch (e) {
+      console.warn('Token lookup in studentTokens warning:', e);
+    }
+
+    // Attempt 2: Fetch student document from 'students' collection
+    const primaryStudentRef = doc(db, 'students', resolvedStudentId);
     const tokenAliasRef = doc(db, 'students', `token_${cleanToken}`);
     const directDocRef = doc(db, 'students', cleanToken);
 
-    const [tokenSnap, directSnap] = await Promise.all([
+    const [primarySnap, tokenAliasSnap, directSnap] = await Promise.all([
+      getDoc(primaryStudentRef).catch(() => null),
       getDoc(tokenAliasRef).catch(() => null),
       getDoc(directDocRef).catch(() => null)
     ]);
 
-    const docResult = (tokenSnap && tokenSnap.exists() ? tokenSnap : directSnap && directSnap.exists() ? directSnap : null);
+    let docResult = (primarySnap && primarySnap.exists() ? primarySnap : null);
+    if (!docResult) {
+      docResult = (tokenAliasSnap && tokenAliasSnap.exists() ? tokenAliasSnap : directSnap && directSnap.exists() ? directSnap : null);
+    }
 
-    if (docResult) {
+    // Attempt 3: Query 'students' collection by magicToken field
+    if (!docResult) {
+      try {
+        const q = query(collection(db, 'students'), where('magicToken', '==', cleanToken));
+        const qSnap = await getDocs(q);
+        if (!qSnap.empty) {
+          docResult = qSnap.docs[0];
+        }
+      } catch (e) {
+        console.warn('Query by magicToken field warning:', e);
+      }
+    }
+
+    if (docResult && docResult.exists()) {
       const data = docResult.data();
       const realStudentId = data.studentId || docResult.id;
       const studentProfile: LinkedStudentProfile = {
@@ -943,9 +972,11 @@ export async function getLinkedChildrenForParent(
       list.push(studentItem);
       saveCachedStudentProfileLocally(studentItem, data as StudentProgress);
 
-      // Backfill token alias document token_XXXX in Firestore for legacy students if needed
+      // Backfill token alias documents in Firestore for existing/legacy students if needed
       if (db && magicToken) {
+        const tokenRef = doc(db, 'studentTokens', magicToken);
         const aliasRef = doc(db, 'students', `token_${magicToken}`);
+        setDoc(tokenRef, { token: magicToken, studentId: docSnap.id, studentName: data.studentName || 'תלמיד/ה', parentId: data.parentId || parentId, createdAt: data.createdAt || new Date().toISOString() }, { merge: true }).catch(() => {});
         setDoc(aliasRef, { ...data, magicToken, studentId: docSnap.id }, { merge: true }).catch(() => {});
       }
     });
