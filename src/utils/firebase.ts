@@ -469,6 +469,49 @@ export function findCachedStudentByCode(code: string): { student?: LinkedStudent
   return null;
 }
 
+export function removeCachedStudentProfileLocally(studentId: string, studentCode?: string, parentId?: string): void {
+  try {
+    // 1. Remove from all known students map
+    const raw = localStorage.getItem(ALL_KNOWN_STUDENTS_CACHE_KEY);
+    if (raw) {
+      const map = JSON.parse(raw);
+      if (studentId) delete map[studentId.toUpperCase()];
+      if (studentCode) {
+        delete map[studentCode.toUpperCase()];
+        delete map[`CODE_${studentCode.toUpperCase()}`];
+      }
+      localStorage.setItem(ALL_KNOWN_STUDENTS_CACHE_KEY, JSON.stringify(map));
+    }
+
+    // 2. Remove from parent's linked children cache
+    if (parentId) {
+      const parentChildren = getCachedChildrenForParent(parentId);
+      const filtered = parentChildren.filter(
+        (c) => c.studentId !== studentId && c.studentCode?.toUpperCase() !== studentCode?.toUpperCase()
+      );
+      saveCachedChildrenForParent(parentId, filtered);
+    } else {
+      // Clear from all cached parent keys in localStorage
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith(LINKED_CHILDREN_CACHE_PREFIX)) {
+          try {
+            const children: LinkedStudentProfile[] = JSON.parse(localStorage.getItem(key) || '[]');
+            const filtered = children.filter(
+              (c) => c.studentId !== studentId && c.studentCode?.toUpperCase() !== studentCode?.toUpperCase()
+            );
+            localStorage.setItem(key, JSON.stringify(filtered));
+          } catch {
+            // ignore
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Error removing cached student locally:', err);
+  }
+}
+
 /**
  * Creates a new linked child/student profile under a parent account
  */
@@ -483,7 +526,7 @@ export async function createLinkedChildProfile(
     const cleanName = studentName.trim();
     if (!cleanName) return { success: false, error: 'אנא הזן שם תלמיד/ה' };
 
-    // Use exact code specified by parent, without appending random numbers
+    // Use exact code specified by parent
     let studentCode = '';
     if (customExactCode && customExactCode.trim()) {
       studentCode = customExactCode.trim().toUpperCase();
@@ -507,14 +550,16 @@ export async function createLinkedChildProfile(
 
     const initialProgress = getInitialProgress();
 
-    // Cache locally immediately so child appears right away even if network is slow
+    // Cache locally immediately so child appears right away
     const existingCached = getCachedChildrenForParent(parentId);
-    saveCachedChildrenForParent(parentId, [newStudentProfile, ...existingCached]);
+    const filteredCached = existingCached.filter(
+      (c) => c.studentCode?.toUpperCase() !== studentCode && c.studentId !== studentDocId
+    );
+    saveCachedChildrenForParent(parentId, [newStudentProfile, ...filteredCached]);
     saveCachedStudentProfileLocally(newStudentProfile, initialProgress);
 
     if (db) {
-      const studentDocRef = doc(db, 'students', studentDocId);
-      const writePromise = setDoc(studentDocRef, {
+      const payload = {
         ...initialProgress,
         studentId: studentDocId,
         studentName: cleanName,
@@ -522,9 +567,17 @@ export async function createLinkedChildProfile(
         parentId,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
-      });
+      };
 
-      const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 6000));
+      const studentDocRef = doc(db, 'students', studentDocId);
+      const codeAliasDocRef = doc(db, 'students', `code_${studentCode}`);
+
+      const writePromise = Promise.all([
+        setDoc(studentDocRef, payload, { merge: true }),
+        setDoc(codeAliasDocRef, payload, { merge: true })
+      ]);
+
+      const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 8000));
       await Promise.race([writePromise, timeoutPromise]);
     }
 
@@ -554,6 +607,13 @@ export async function updateLinkedChildCode(
         studentCode: cleanCode,
         updatedAt: new Date().toISOString()
       });
+
+      // Write alias document for O(1) lookup
+      const codeAliasRef = doc(db, 'students', `code_${cleanCode}`);
+      const snap = await getDoc(studentDocRef);
+      if (snap.exists()) {
+        await setDoc(codeAliasRef, snap.data(), { merge: true });
+      }
     }
 
     return { success: true };
@@ -565,16 +625,35 @@ export async function updateLinkedChildCode(
 }
 
 /**
- * Deletes a linked child profile from Firestore
+ * Deletes a linked child profile from Firestore and cleans up local cache
  */
 export async function deleteLinkedChild(
-  studentId: string
+  studentId: string,
+  parentId?: string,
+  studentCode?: string
 ): Promise<{ success: boolean; error?: string }> {
+  // Always clean up local storage cache first so UI never resurrects deleted child
+  removeCachedStudentProfileLocally(studentId, studentCode, parentId);
+
   const db = getFirebaseDb();
   try {
     if (db) {
       const studentDocRef = doc(db, 'students', studentId);
       await deleteDoc(studentDocRef);
+
+      if (studentCode) {
+        const cleanCode = studentCode.trim().toUpperCase();
+        try {
+          await deleteDoc(doc(db, 'students', `code_${cleanCode}`));
+        } catch {
+          // ignore
+        }
+        try {
+          await deleteDoc(doc(db, 'students', cleanCode));
+        } catch {
+          // ignore
+        }
+      }
     }
     return { success: true };
   } catch (err: unknown) {
@@ -603,13 +682,16 @@ export async function getLinkedChildrenForParent(
 
     const fetchPromise = getDocs(q);
     const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('timeout')), 5000)
+      setTimeout(() => reject(new Error('timeout')), 6000)
     );
 
     const querySnapshot = await Promise.race([fetchPromise, timeoutPromise]);
 
     const list: LinkedStudentProfile[] = [];
     querySnapshot.forEach((docSnap) => {
+      // Ignore alias documents starting with code_
+      if (docSnap.id.startsWith('code_')) return;
+
       const data = docSnap.data();
       const totalSolved = data.totalSolved || 0;
       const totalCorrect = data.totalCorrect || 0;
@@ -648,7 +730,7 @@ export async function findStudentByLoginCode(
   const cleanCode = studentCode.trim().toUpperCase();
   if (!cleanCode) return { success: false, error: 'נא להזין קוד תלמיד' };
 
-  // 1. Check local cache first for instant offline fallback
+  // 1. Check local cache first for instant offline/speedy login
   const localMatch = findCachedStudentByCode(cleanCode);
 
   const db = getFirebaseDb();
@@ -665,52 +747,54 @@ export async function findStudentByLoginCode(
   }
 
   try {
-    const timeoutMs = 5000;
+    const timeoutMs = 12000; // 12 seconds timeout for mobile network
 
-    // 2. Direct document check (if code is doc ID)
-    try {
-      const directDocPromise = getDoc(doc(db, 'students', cleanCode));
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('timeout')), timeoutMs)
-      );
-      const directDoc = await Promise.race([directDocPromise, timeoutPromise]);
-
-      if (directDoc.exists()) {
-        const data = directDoc.data();
-        const studentItem: LinkedStudentProfile = {
-          studentId: directDoc.id,
-          studentName: data.studentName || 'תלמיד/ה',
-          studentCode: data.studentCode || cleanCode,
-          parentId: data.parentId || '',
-          createdAt: data.createdAt || new Date().toISOString()
-        };
-        saveCachedStudentProfileLocally(studentItem, data as StudentProgress);
-
-        return {
-          success: true,
-          progress: data as StudentProgress,
-          studentId: directDoc.id,
-          studentName: data.studentName || 'תלמיד/ה'
-        };
-      }
-    } catch {
-      // Direct doc check bypassed/failed, fallback to query
-    }
-
-    // 3. Query by studentCode field
+    const codeAliasRef = doc(db, 'students', `code_${cleanCode}`);
+    const directDocRef = doc(db, 'students', cleanCode);
     const studentsRef = collection(db, 'students');
     const q = query(studentsRef, where('studentCode', '==', cleanCode));
-    const snapPromise = getDocs(q);
-    const timeoutPromise = new Promise<never>((_, reject) =>
+
+    const checkCloudPromise = async () => {
+      // 1. Check O(1) alias document code_2016
+      try {
+        const aliasSnap = await getDoc(codeAliasRef);
+        if (aliasSnap.exists()) return aliasSnap;
+      } catch {
+        // ignore
+      }
+
+      // 2. Check O(1) direct doc ID
+      try {
+        const directSnap = await getDoc(directDocRef);
+        if (directSnap.exists()) return directSnap;
+      } catch {
+        // ignore
+      }
+
+      // 3. Collection query by studentCode
+      try {
+        const querySnap = await getDocs(q);
+        if (!querySnap.empty) {
+          return querySnap.docs[0];
+        }
+      } catch {
+        // ignore
+      }
+
+      return null;
+    };
+
+    const timeoutPromise = new Promise<null>((_, reject) =>
       setTimeout(() => reject(new Error('timeout')), timeoutMs)
     );
-    const snap = await Promise.race([snapPromise, timeoutPromise]);
 
-    if (!snap.empty) {
-      const docItem = snap.docs[0];
-      const data = docItem.data();
+    const docResult = await Promise.race([checkCloudPromise(), timeoutPromise]);
+
+    if (docResult && docResult.exists()) {
+      const data = docResult.data();
+      const realStudentId = data.studentId || docResult.id;
       const studentItem: LinkedStudentProfile = {
-        studentId: docItem.id,
+        studentId: realStudentId,
         studentName: data.studentName || 'תלמיד/ה',
         studentCode: data.studentCode || cleanCode,
         parentId: data.parentId || '',
@@ -721,7 +805,7 @@ export async function findStudentByLoginCode(
       return {
         success: true,
         progress: data as StudentProgress,
-        studentId: docItem.id,
+        studentId: realStudentId,
         studentName: data.studentName || 'תלמיד/ה'
       };
     }

@@ -132,7 +132,7 @@ export const LinkedStudentsManager: React.FC<LinkedStudentsManagerProps> = ({
       return;
     }
     setLoading(true);
-    const res = await deleteLinkedChild(child.studentId);
+    const res = await deleteLinkedChild(child.studentId, parentProfile.uid, child.studentCode);
     if (res.success) {
       setSuccessMsg(`התלמיד "${child.studentName}" הוסר בהצלחה`);
       await fetchChildren();
