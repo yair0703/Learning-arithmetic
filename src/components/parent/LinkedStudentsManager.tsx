@@ -142,7 +142,10 @@ export const LinkedStudentsManager: React.FC<LinkedStudentsManagerProps> = ({
 
   const handleSaveEditCode = async (studentId: string) => {
     if (!editCodeValue.trim()) return;
-    const cleanNewCode = editCodeValue.trim().toUpperCase();
+    const cleanNewCode = editCodeValue.trim().replace(/\s+/g, '').toUpperCase();
+    const currentChild = children.find((c) => c.studentId === studentId);
+    const oldCode = currentChild?.studentCode;
+
     setUpdatingCode(true);
     setErrorMsg(null);
 
@@ -152,16 +155,16 @@ export const LinkedStudentsManager: React.FC<LinkedStudentsManagerProps> = ({
     );
 
     try {
-      const res = await updateLinkedChildCode(studentId, cleanNewCode);
+      const res = await updateLinkedChildCode(studentId, cleanNewCode, parentProfile.uid, oldCode);
       if (res.success) {
         setSuccessMsg(`קוד הכניסה עודכן בהצלחה ל: ${cleanNewCode}`);
         setEditingStudentId(null);
       } else {
-        setErrorMsg(res.error || 'שגיאה בעדכון הקוד');
+        setErrorMsg(res.error || 'שגיאה בעדכון הקוד בשרת הענן');
         fetchChildren(); // Revert on failure
       }
     } catch {
-      setErrorMsg('שגיאה בעדכון הקוד');
+      setErrorMsg('שגיאה בעדכון הקוד בשרת הענן');
       fetchChildren();
     } finally {
       setUpdatingCode(false);

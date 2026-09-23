@@ -611,30 +611,68 @@ export async function createLinkedChildProfile(
 }
 
 /**
- * Updates an existing child's login code
+ * Updates an existing child's login code in Firestore and cleans up local/cloud aliases
  */
 export async function updateLinkedChildCode(
   studentId: string,
-  newCode: string
+  newCode: string,
+  parentId?: string,
+  oldCode?: string
 ): Promise<{ success: boolean; error?: string }> {
-  const cleanCode = newCode.trim().toUpperCase();
+  const cleanCode = newCode.trim().replace(/\s+/g, '').toUpperCase();
   if (!cleanCode) return { success: false, error: 'קוד הכניסה אינו יכול להיות ריק' };
 
   const db = getFirebaseDb();
   try {
     if (db) {
       const studentDocRef = doc(db, 'students', studentId);
-      await updateDoc(studentDocRef, {
-        studentCode: cleanCode,
-        updatedAt: new Date().toISOString()
-      });
-
-      // Write alias document for O(1) lookup
       const codeAliasRef = doc(db, 'students', `code_${cleanCode}`);
-      const snap = await getDoc(studentDocRef);
-      if (snap.exists()) {
-        await setDoc(codeAliasRef, snap.data(), { merge: true });
+
+      // Fetch current document data to preserve existing progress/name
+      let existingData: any = {};
+      try {
+        const snap = await getDoc(studentDocRef);
+        if (snap.exists()) {
+          existingData = snap.data();
+        }
+      } catch {
+        // ignore
       }
+
+      const updatedPayload = {
+        ...existingData,
+        studentId,
+        studentCode: cleanCode,
+        parentId: parentId || existingData.parentId || '',
+        updatedAt: new Date().toISOString()
+      };
+
+      // Perform resilient setDoc with merge for both primary and alias docs
+      await Promise.all([
+        setDoc(studentDocRef, updatedPayload, { merge: true }),
+        setDoc(codeAliasRef, updatedPayload, { merge: true })
+      ]);
+
+      // Clean up old code alias if provided and different
+      if (oldCode) {
+        const cleanOldCode = oldCode.trim().replace(/\s+/g, '').toUpperCase();
+        if (cleanOldCode && cleanOldCode !== cleanCode) {
+          try {
+            await deleteDoc(doc(db, 'students', `code_${cleanOldCode}`));
+          } catch {
+            // ignore
+          }
+        }
+      }
+    }
+
+    // Update local storage cache for parent
+    if (parentId) {
+      const cached = getCachedChildrenForParent(parentId);
+      const updatedList = cached.map((c) =>
+        c.studentId === studentId ? { ...c, studentCode: cleanCode } : c
+      );
+      saveCachedChildrenForParent(parentId, updatedList);
     }
 
     return { success: true };
