@@ -154,6 +154,10 @@ export function clearUserProfileStorage(): void {
  */
 export function getStudentCloudId(): string {
   try {
+    const userProfile = getSavedUserProfile();
+    if (userProfile.role === 'student' && userProfile.uid) {
+      return userProfile.uid;
+    }
     let id = localStorage.getItem(CLOUD_STUDENT_ID_KEY);
     if (!id || id.trim().length === 0) {
       const randomNum = Math.floor(1000 + Math.random() * 9000);
@@ -168,7 +172,7 @@ export function getStudentCloudId(): string {
 
 export function setStudentCloudId(newId: string): void {
   try {
-    const clean = newId.trim().toUpperCase();
+    const clean = newId.trim();
     if (clean) {
       localStorage.setItem(CLOUD_STUDENT_ID_KEY, clean);
     }
@@ -199,6 +203,9 @@ export async function saveStudentProgressToCloud(
   const cloudId = customCloudId || getStudentCloudId();
 
   try {
+    // Ensure active auth session so write passes without permission delays
+    await ensureAuthSession();
+
     const docRef = doc(db, 'students', cloudId);
     
     const payload: Record<string, any> = {
@@ -221,6 +228,25 @@ export async function saveStudentProgressToCloud(
 
     await setDoc(docRef, payload, { merge: true });
 
+    // Also update local cache for fast offline lookup
+    const cachedStudent = getCachedStudentProfileLocally(cloudId);
+    if (cachedStudent) {
+      if (cachedStudent.magicToken) {
+        const tokenAliasRef = doc(db, 'students', `token_${cachedStudent.magicToken}`);
+        setDoc(tokenAliasRef, payload, { merge: true }).catch(() => {});
+      }
+      saveCachedStudentProfileLocally(
+        {
+          ...cachedStudent,
+          totalSolved: payload.totalSolved,
+          totalCorrect: payload.totalCorrect,
+          accuracyRate: payload.totalSolved > 0 ? Math.round((payload.totalCorrect / payload.totalSolved) * 100) : 0,
+          lastActiveDate: payload.lastActiveDate
+        },
+        progress
+      );
+    }
+
     return {
       success: true,
       timestamp: new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })
@@ -229,6 +255,97 @@ export async function saveStudentProgressToCloud(
     const errorMsg = err instanceof Error ? err.message : 'שגיאה בלתי צפויה בשמירה';
     console.error('Error saving progress to Firestore:', err);
     return { success: false, timestamp: new Date().toISOString(), error: errorMsg };
+  }
+}
+
+/**
+ * Real-time listener for linked children of a parent
+ */
+export function subscribeToLinkedChildren(
+  parentId: string,
+  onUpdate: (children: LinkedStudentProfile[]) => void
+): () => void {
+  const db = getFirebaseDb();
+  if (!db || !parentId) {
+    return () => {};
+  }
+
+  try {
+    const studentsRef = collection(db, 'students');
+    const q = query(studentsRef, where('parentId', '==', parentId));
+
+    const unsubscribe = onSnapshot(
+      q,
+      (querySnapshot) => {
+        const list: LinkedStudentProfile[] = [];
+        querySnapshot.forEach((docSnap) => {
+          if (docSnap.id.startsWith('code_') || docSnap.id.startsWith('token_')) return;
+          const data = docSnap.data();
+          const totalSolved = data.totalSolved || 0;
+          const totalCorrect = data.totalCorrect || 0;
+          const accuracyRate = totalSolved > 0 ? Math.round((totalCorrect / totalSolved) * 100) : 0;
+          const magicToken = data.magicToken || docSnap.id;
+
+          const studentItem: LinkedStudentProfile = {
+            studentId: docSnap.id,
+            studentName: data.studentName || 'תלמיד/ה',
+            magicToken,
+            parentId: data.parentId || parentId,
+            createdAt: data.createdAt || new Date().toISOString(),
+            lastActiveDate: data.lastActiveDate,
+            totalSolved,
+            totalCorrect,
+            accuracyRate
+          };
+          list.push(studentItem);
+          saveCachedStudentProfileLocally(studentItem, data as StudentProgress);
+        });
+
+        saveCachedChildrenForParent(parentId, list);
+        onUpdate(list);
+      },
+      (error) => {
+        console.warn('Realtime subscription to linked children warning:', error);
+      }
+    );
+
+    return unsubscribe;
+  } catch (err) {
+    console.warn('Could not establish realtime listener:', err);
+    return () => {};
+  }
+}
+
+/**
+ * Real-time listener for a single student's progress
+ */
+export function subscribeToStudentProgress(
+  studentId: string,
+  onUpdate: (progress: StudentProgress, studentName?: string) => void
+): () => void {
+  const db = getFirebaseDb();
+  if (!db || !studentId) {
+    return () => {};
+  }
+
+  try {
+    const studentDocRef = doc(db, 'students', studentId);
+    const unsubscribe = onSnapshot(
+      studentDocRef,
+      (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data() as StudentProgress & { studentName?: string };
+          onUpdate(data, data.studentName);
+        }
+      },
+      (error) => {
+        console.warn('Realtime subscription to student progress warning:', error);
+      }
+    );
+    return unsubscribe;
+  } catch (err) {
+    console.warn('Could not establish student progress realtime listener:', err);
+    return () => {};
   }
 }
 
@@ -463,6 +580,19 @@ export function saveCachedStudentProfileLocally(student: LinkedStudentProfile, p
   } catch {
     // ignore
   }
+}
+
+export function getCachedStudentProfileLocally(tokenOrId: string): LinkedStudentProfile | null {
+  try {
+    const cleanKey = tokenOrId.trim().toUpperCase();
+    const raw = localStorage.getItem(ALL_KNOWN_STUDENTS_CACHE_KEY);
+    if (!raw) return null;
+    const map = JSON.parse(raw);
+    if (map[cleanKey]?.student) return map[cleanKey].student;
+  } catch {
+    // ignore
+  }
+  return null;
 }
 
 export function getCachedStudentProgressLocally(tokenOrId: string): StudentProgress | null {

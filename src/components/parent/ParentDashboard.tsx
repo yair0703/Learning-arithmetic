@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StudentProgress, ParentDiagnosticInsight } from '../../types';
 import { TOPICS } from '../../data/curriculumData';
 import { generateParentDiagnosticReport, seedDemoProgress, getInitialProgress, saveStudentProgress, resetParentPinToDefault } from '../../utils/storage';
+import { loadStudentProgressFromCloud, subscribeToStudentProgress } from '../../utils/firebase';
 import { WeeklyProgressChart } from './WeeklyProgressChart';
 import { ParentPinLock } from './ParentPinLock';
 import { ChangePinModal } from './ChangePinModal';
@@ -24,7 +25,8 @@ import {
   HeartHandshake,
   Lock,
   KeyRound,
-  UserCheck
+  UserCheck,
+  RefreshCw
 } from 'lucide-react';
 
 interface ParentDashboardProps {
@@ -44,10 +46,56 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
 }) => {
   const [isUnlocked, setIsUnlocked] = useState<boolean>(false);
   const [isChangePinOpen, setIsChangePinOpen] = useState<boolean>(false);
+  const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
   const [selectedChildName, setSelectedChildName] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [report, setReport] = useState<ParentDiagnosticInsight>(() =>
     generateParentDiagnosticReport(progress)
   );
+
+  // Sync report whenever progress updates
+  useEffect(() => {
+    setReport(generateParentDiagnosticReport(progress));
+  }, [progress]);
+
+  // Real-time listener when a specific child is selected
+  useEffect(() => {
+    if (!selectedChildId) return;
+
+    const unsubscribe = subscribeToStudentProgress(selectedChildId, (cloudProgress) => {
+      onProgressUpdate(cloudProgress);
+      setReport(generateParentDiagnosticReport(cloudProgress));
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [selectedChildId, onProgressUpdate]);
+
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      if (selectedChildId) {
+        const cloudRes = await loadStudentProgressFromCloud(selectedChildId);
+        if (cloudRes.success && cloudRes.data) {
+          saveStudentProgress(cloudRes.data);
+          onProgressUpdate(cloudRes.data);
+          setReport(generateParentDiagnosticReport(cloudRes.data));
+        }
+      } else {
+        const cloudRes = await loadStudentProgressFromCloud();
+        if (cloudRes.success && cloudRes.data) {
+          saveStudentProgress(cloudRes.data);
+          onProgressUpdate(cloudRes.data);
+          setReport(generateParentDiagnosticReport(cloudRes.data));
+        }
+      }
+    } catch (e) {
+      console.warn('Manual refresh in ParentDashboard:', e);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   // If not authenticated, present the PIN lock screen
   if (!isUnlocked) {
@@ -83,13 +131,14 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
             <ShieldCheck className="w-8 h-8" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs bg-indigo-500/30 text-indigo-300 px-2.5 py-0.5 rounded-full font-bold">
                 אזור הורים ומורים (מאומת)
               </span>
               {selectedChildName ? (
-                <span className="text-xs bg-emerald-500/30 text-emerald-300 px-2.5 py-0.5 rounded-full font-bold">
-                  מציג דוח של: {selectedChildName}
+                <span className="text-xs bg-emerald-500/30 text-emerald-300 border border-emerald-400/30 px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span>דוח פעיל: {selectedChildName}</span>
                 </span>
               ) : (
                 <span className="text-xs text-slate-400">תכנית מסלולים פלוס – כיתה ה׳</span>
@@ -100,6 +149,18 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          {/* Refresh button */}
+          <button
+            type="button"
+            onClick={handleManualRefresh}
+            disabled={isRefreshing}
+            className="px-3.5 py-2.5 bg-slate-800/90 hover:bg-slate-700 text-emerald-300 border border-emerald-500/30 font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all shadow-xs cursor-pointer disabled:opacity-50 active:scale-95"
+            title="רענון ידני של הדוח מהענן"
+          >
+            <RefreshCw className={`w-4 h-4 text-emerald-400 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span>{isRefreshing ? 'מרענן...' : 'רענן נתונים 🔄'}</span>
+          </button>
+
           {/* Change PIN button */}
           <button
             type="button"
@@ -186,7 +247,8 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
         <LinkedStudentsManager
           parentProfile={userProfile.uid ? userProfile : { role: 'parent', uid: 'parent_local', displayName: userProfile.displayName || 'חשבון הורה' }}
           currentProgress={progress}
-          onSelectStudentProgress={(childProg, childName) => {
+          onSelectStudentProgress={(childProg, childName, childId) => {
+            if (childId) setSelectedChildId(childId);
             setSelectedChildName(childName);
             onProgressUpdate(childProg);
             setReport(generateParentDiagnosticReport(childProg));

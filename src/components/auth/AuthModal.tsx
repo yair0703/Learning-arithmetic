@@ -127,7 +127,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         const profile: UserProfile = {
           role: 'student',
           displayName: res.student.studentName,
-          uid: res.student.studentId
+          uid: res.student.studentId,
+          linkedParentId: res.student.parentId,
+          studentCode: res.student.studentCode
         };
 
         saveUserProfileToStorage(profile);
@@ -157,7 +159,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         const profile: UserProfile = {
           role: 'student',
           displayName: res.student.studentName,
-          uid: res.student.studentId
+          uid: res.student.studentId,
+          linkedParentId: res.student.parentId,
+          studentCode: res.student.studentCode
         };
 
         saveUserProfileToStorage(profile);

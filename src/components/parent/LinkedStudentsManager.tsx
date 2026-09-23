@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Users,
   UserPlus,
@@ -12,7 +12,8 @@ import {
   Smartphone,
   Trash2,
   Share2,
-  QrCode
+  QrCode,
+  Radio
 } from 'lucide-react';
 import { LinkedStudentProfile, StudentProgress, UserProfile } from '../../types';
 import {
@@ -22,7 +23,8 @@ import {
   deleteLinkedChild,
   loadStudentProgressFromCloud,
   setStudentCloudId,
-  getMagicLinkUrl
+  getMagicLinkUrl,
+  subscribeToLinkedChildren
 } from '../../utils/firebase';
 import { saveStudentProgress } from '../../utils/storage';
 import { StudentQrModal } from './StudentQrModal';
@@ -30,7 +32,7 @@ import { StudentQrModal } from './StudentQrModal';
 interface LinkedStudentsManagerProps {
   parentProfile: UserProfile;
   currentProgress: StudentProgress;
-  onSelectStudentProgress: (progress: StudentProgress, studentName: string) => void;
+  onSelectStudentProgress: (progress: StudentProgress, studentName: string, studentId?: string) => void;
 }
 
 export const LinkedStudentsManager: React.FC<LinkedStudentsManagerProps> = ({
@@ -39,6 +41,8 @@ export const LinkedStudentsManager: React.FC<LinkedStudentsManagerProps> = ({
 }) => {
   const [children, setChildren] = useState<LinkedStudentProfile[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [lastRefreshedTime, setLastRefreshedTime] = useState<string>('');
   const [isAddingOpen, setIsAddingOpen] = useState<boolean>(false);
   const [newStudentName, setNewStudentName] = useState<string>('');
   const [creating, setCreating] = useState<boolean>(false);
@@ -49,29 +53,49 @@ export const LinkedStudentsManager: React.FC<LinkedStudentsManagerProps> = ({
 
   const parentUid = parentProfile.uid || 'parent_local';
 
-  const fetchChildren = async () => {
-    // Load local cached list immediately to eliminate waiting UI
-    const localCached = getCachedChildrenForParent(parentUid);
-    if (localCached.length > 0) {
-      setChildren(localCached);
-      setLoading(false);
+  const fetchChildren = useCallback(async (showIndicator = false) => {
+    if (showIndicator) {
+      setIsRefreshing(true);
     } else {
-      setLoading(true);
+      const localCached = getCachedChildrenForParent(parentUid);
+      if (localCached.length > 0) {
+        setChildren(localCached);
+        setLoading(false);
+      } else {
+        setLoading(true);
+      }
     }
 
     try {
       const list = await getLinkedChildrenForParent(parentUid);
       setChildren(list);
+      setLastRefreshedTime(new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+      if (showIndicator) {
+        setSuccessMsg('נתוני התלמידים סונכרנו בהצלחה מהענן ☁️');
+        setTimeout(() => setSuccessMsg(null), 3000);
+      }
     } catch (err) {
       console.warn('Error fetching linked children:', err);
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
-  };
-
-  useEffect(() => {
-    fetchChildren();
   }, [parentUid]);
+
+  // Real-time listener for parent's linked students
+  useEffect(() => {
+    fetchChildren(false);
+
+    const unsubscribe = subscribeToLinkedChildren(parentUid, (updatedList) => {
+      setChildren(updatedList);
+      setLastRefreshedTime(new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+      setLoading(false);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [parentUid, fetchChildren]);
 
   const handleCreateStudent = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -158,7 +182,7 @@ export const LinkedStudentsManager: React.FC<LinkedStudentsManagerProps> = ({
       if (res.success && res.data) {
         setStudentCloudId(child.studentId);
         saveStudentProgress(res.data);
-        onSelectStudentProgress(res.data, child.studentName);
+        onSelectStudentProgress(res.data, child.studentName, child.studentId);
         setSuccessMsg(`כעת מוצג הדוח הפדגוגי של: ${child.studentName}`);
       } else {
         setErrorMsg('לא ניתן היה לטעון את נתוני התלמיד מהענן');
@@ -182,30 +206,52 @@ export const LinkedStudentsManager: React.FC<LinkedStudentsManagerProps> = ({
             <Users className="w-6 h-6" />
           </div>
           <div>
-            <h2 className="text-lg md:text-xl font-black text-slate-900 flex items-center gap-2">
+            <h2 className="text-lg md:text-xl font-black text-slate-900 flex items-center gap-2 flex-wrap">
               <span>ניהול תלמידים וילדים מקושרים</span>
               <span className="text-xs bg-indigo-100 text-indigo-800 font-bold px-2 py-0.5 rounded-full">
                 {children.length} תלמידים
               </span>
+              <span className="text-[11px] bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span>סנכרון ענן בזמן אמת</span>
+              </span>
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
               חיבור מהיר באמצעות קישור Magic Link אישי וקוד QR ללא צורך בסיסמאות
+              {lastRefreshedTime && (
+                <span className="text-slate-400 mr-2"> • עודכן לאחרונה: {lastRefreshedTime}</span>
+              )}
             </p>
           </div>
         </div>
 
-        {/* Add Student Button */}
-        <button
-          type="button"
-          onClick={() => {
-            setIsAddingOpen(!isAddingOpen);
-            setErrorMsg(null);
-          }}
-          className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold text-xs rounded-xl flex items-center gap-2 transition-all shadow-xs cursor-pointer self-start sm:self-auto"
-        >
-          <UserPlus className="w-4 h-4" />
-          <span>{isAddingOpen ? 'סגור טופס' : '+ הוסף תלמיד / ילד חדש'}</span>
-        </button>
+        {/* Header Action Buttons */}
+        <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+          {/* Refresh Data Button */}
+          <button
+            type="button"
+            onClick={() => fetchChildren(true)}
+            disabled={isRefreshing}
+            className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer border border-slate-200 active:scale-95 disabled:opacity-50"
+            title="רענון ידני של נתוני ההתקדמות מ-Firebase"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-indigo-600 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span>{isRefreshing ? 'מרענן נתונים...' : 'רענן נתונים 🔄'}</span>
+          </button>
+
+          {/* Add Student Button */}
+          <button
+            type="button"
+            onClick={() => {
+              setIsAddingOpen(!isAddingOpen);
+              setErrorMsg(null);
+            }}
+            className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold text-xs rounded-xl flex items-center gap-2 transition-all shadow-xs cursor-pointer active:scale-95"
+          >
+            <UserPlus className="w-4 h-4" />
+            <span>{isAddingOpen ? 'סגור טופס' : '+ הוסף תלמיד / ילד חדש'}</span>
+          </button>
+        </div>
       </div>
 
       {/* Messages */}

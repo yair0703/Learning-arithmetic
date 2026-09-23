@@ -129,7 +129,9 @@ export default function App() {
             const profile: UserProfile = {
               role: 'student',
               displayName: res.student.studentName,
-              uid: res.student.studentId
+              uid: res.student.studentId,
+              linkedParentId: res.student.parentId,
+              studentCode: res.student.studentCode
             };
             saveUserProfileToStorage(profile);
             setUserProfile(profile);
@@ -250,6 +252,8 @@ export default function App() {
     setProgress(newProgress);
     saveStudentProgress(newProgress);
 
+    const activeStudentId = userProfile.role === 'student' && userProfile.uid ? userProfile.uid : undefined;
+
     // 2. If offline, push change into IndexedDB queue
     if (!navigator.onLine) {
       setCloudSyncState('offline');
@@ -259,7 +263,7 @@ export default function App() {
       return;
     }
 
-    // 3. If online, debounce cloud save with auto-fallback to IndexedDB
+    // 3. If online, sync to cloud with fast debounce (200ms) with auto-fallback to IndexedDB
     setCloudSyncState('syncing');
     if (syncTimeoutRef.current) {
       clearTimeout(syncTimeoutRef.current);
@@ -267,7 +271,11 @@ export default function App() {
 
     syncTimeoutRef.current = setTimeout(async () => {
       try {
-        const res = await saveStudentProgressToCloud(newProgress);
+        const res = await saveStudentProgressToCloud(newProgress, activeStudentId, {
+          parentId: userProfile.linkedParentId,
+          studentName: userProfile.displayName,
+          studentCode: userProfile.studentCode
+        });
         if (res.success) {
           setCloudSyncState('synced');
           // Also flush any previous queued items
@@ -289,7 +297,7 @@ export default function App() {
         setPendingQueueCount(count);
         setCloudSyncState('offline');
       }
-    }, 600);
+    }, 200);
   };
 
   const handleSelectTopicToLearn = (topicId: TopicId) => {
