@@ -578,14 +578,15 @@ export async function createLinkedChildProfile(
     const cleanName = studentName.trim();
     if (!cleanName) return { success: false, error: 'אנא הזן שם תלמיד/ה' };
 
-    const studentDocId = `student_${parentId}_${Date.now()}`;
+    const effectiveParentId = parentId?.trim() || 'parent_local';
+    const studentDocId = `student_${effectiveParentId}_${Date.now()}`;
     const magicToken = `st_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
     const newStudentProfile: LinkedStudentProfile = {
       studentId: studentDocId,
       studentName: cleanName,
       magicToken,
-      parentId,
+      parentId: effectiveParentId,
       createdAt: new Date().toISOString(),
       lastActiveDate: new Date().toISOString().slice(0, 10),
       totalSolved: 0,
@@ -596,8 +597,8 @@ export async function createLinkedChildProfile(
     const initialProgress = getInitialProgress();
 
     // 1. Cache locally immediately so student appears in UI instantly (< 5ms)
-    const existingCached = getCachedChildrenForParent(parentId);
-    saveCachedChildrenForParent(parentId, [
+    const existingCached = getCachedChildrenForParent(effectiveParentId);
+    saveCachedChildrenForParent(effectiveParentId, [
       newStudentProfile,
       ...existingCached.filter((c) => c.studentId !== studentDocId)
     ]);
@@ -613,7 +614,7 @@ export async function createLinkedChildProfile(
             studentId: studentDocId,
             studentName: cleanName,
             magicToken,
-            parentId,
+            parentId: effectiveParentId,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
           };
@@ -622,7 +623,7 @@ export async function createLinkedChildProfile(
             token: magicToken,
             studentId: studentDocId,
             studentName: cleanName,
-            parentId,
+            parentId: effectiveParentId,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
           };

@@ -47,14 +47,11 @@ export const LinkedStudentsManager: React.FC<LinkedStudentsManagerProps> = ({
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [selectedQrStudent, setSelectedQrStudent] = useState<LinkedStudentProfile | null>(null);
 
+  const parentUid = parentProfile.uid || 'parent_local';
+
   const fetchChildren = async () => {
-    if (!parentProfile.uid) {
-      setLoading(false);
-      return;
-    }
-    
     // Load local cached list immediately to eliminate waiting UI
-    const localCached = getCachedChildrenForParent(parentProfile.uid);
+    const localCached = getCachedChildrenForParent(parentUid);
     if (localCached.length > 0) {
       setChildren(localCached);
       setLoading(false);
@@ -63,7 +60,7 @@ export const LinkedStudentsManager: React.FC<LinkedStudentsManagerProps> = ({
     }
 
     try {
-      const list = await getLinkedChildrenForParent(parentProfile.uid);
+      const list = await getLinkedChildrenForParent(parentUid);
       setChildren(list);
     } catch (err) {
       console.warn('Error fetching linked children:', err);
@@ -74,14 +71,10 @@ export const LinkedStudentsManager: React.FC<LinkedStudentsManagerProps> = ({
 
   useEffect(() => {
     fetchChildren();
-  }, [parentProfile.uid]);
+  }, [parentUid]);
 
   const handleCreateStudent = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!parentProfile.uid) {
-      setErrorMsg('יש להתחבר תחילה כהורה כדי ליצור פרופיל תלמיד');
-      return;
-    }
     if (!newStudentName.trim()) {
       setErrorMsg('נא להזין את שם התלמיד/ה');
       return;
@@ -93,7 +86,7 @@ export const LinkedStudentsManager: React.FC<LinkedStudentsManagerProps> = ({
 
     try {
       const res = await createLinkedChildProfile(
-        parentProfile.uid,
+        parentUid,
         newStudentName.trim()
       );
 
