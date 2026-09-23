@@ -965,3 +965,121 @@ export async function findStudentByLoginCode(
     return { success: false, error: errorMsg };
   }
 }
+
+/**
+ * Real-time diagnostic check to verify 100% cloud sync status of a student
+ */
+export async function verifyStudentSyncInCloud(
+  student: LinkedStudentProfile
+): Promise<{ isSynced: boolean; message: string; details?: string }> {
+  const cleanCode = (student.studentCode || '').trim().replace(/\s+/g, '').toUpperCase();
+  if (!cleanCode) {
+    return { isSynced: false, message: 'קוד התלמיד ריק. נדרשת הגדרת קוד חדש.' };
+  }
+
+  const db = getFirebaseDb();
+  if (!db) {
+    return { isSynced: false, message: 'מסד הנתונים אינו זמין כרגע במצב לא מקוון.' };
+  }
+
+  await ensureAuthSession();
+
+  try {
+    const codeAliasRef = doc(db, 'students', `code_${cleanCode}`);
+    const studentDocRef = doc(db, 'students', student.studentId);
+
+    const [aliasSnap, docSnap] = await Promise.all([
+      getDoc(codeAliasRef).catch(() => null),
+      getDoc(studentDocRef).catch(() => null)
+    ]);
+
+    const aliasExists = aliasSnap && aliasSnap.exists();
+    const docExists = docSnap && docSnap.exists();
+
+    if (aliasExists && docExists) {
+      return {
+        isSynced: true,
+        message: `מסונכרן 100% בענן! התלמיד/ה "${student.studentName}" מוכן/ה לכניסה מיידית עם קוד ${cleanCode}.`
+      };
+    }
+
+    if (aliasExists || docExists) {
+      return {
+        isSynced: false,
+        message: 'סנכרון חלקי בלבד בענן. נדרש ריענון סנכרון בלחיצה אחת.',
+        details: 'אחת הרשומות בענן עדיין לא עודכנה.'
+      };
+    }
+
+    return {
+      isSynced: false,
+      message: `הקוד ${cleanCode} אינו רשום עדיין בשרת הענן. לחץ על "סנכרן עכשיו" לתיקון מיידי.`,
+      details: 'הרשומה לא נמצאה ב-Firestore.'
+    };
+  } catch (err) {
+    console.error('Error verifying sync in cloud:', err);
+    return {
+      isSynced: false,
+      message: 'לא ניתן היה לבדוק את השרת כעת. בדוק את חיבור האינטרנט.',
+      details: String(err)
+    };
+  }
+}
+
+/**
+ * Force resynchronization of a student code and profile to Firestore Cloud
+ */
+export async function resyncStudentCodeInCloud(
+  student: LinkedStudentProfile,
+  parentId: string
+): Promise<{ success: boolean; message: string }> {
+  const cleanCode = (student.studentCode || '').trim().replace(/\s+/g, '').toUpperCase();
+  if (!cleanCode) {
+    return { success: false, message: 'קוד תלמיד לא תקין' };
+  }
+
+  const db = getFirebaseDb();
+  if (!db) {
+    return { success: false, message: 'חיבור ענן אינו זמין' };
+  }
+
+  await ensureAuthSession();
+
+  try {
+    const localMatch = findCachedStudentByCode(cleanCode);
+    const cachedProgress = localMatch?.progress || getInitialProgress();
+    const payload = {
+      ...cachedProgress,
+      studentId: student.studentId,
+      studentName: student.studentName,
+      studentCode: cleanCode,
+      parentId,
+      updatedAt: new Date().toISOString()
+    };
+
+    const studentDocRef = doc(db, 'students', student.studentId);
+    const codeAliasDocRef = doc(db, 'students', `code_${cleanCode}`);
+
+    await Promise.all([
+      setDoc(studentDocRef, payload, { merge: true }),
+      setDoc(codeAliasDocRef, payload, { merge: true })
+    ]);
+
+    saveCachedStudentProfileLocally(
+      { ...student, studentCode: cleanCode },
+      payload as StudentProgress
+    );
+
+    return {
+      success: true,
+      message: `הסנכרון חודש בהצלחה! התלמיד/ה "${student.studentName}" מסונכרן/ת כעת 100% בענן עם קוד ${cleanCode}.`
+    };
+  } catch (err) {
+    console.error('Error resyncing student code to cloud:', err);
+    return {
+      success: false,
+      message: 'שגיאה בסנכרון מול הענן. בדוק את החיבור לרשת ונסה שוב.'
+    };
+  }
+}
+

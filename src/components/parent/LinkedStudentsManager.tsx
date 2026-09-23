@@ -16,7 +16,9 @@ import {
   Smartphone,
   Edit2,
   Trash2,
-  X
+  X,
+  ShieldCheck,
+  CheckCircle2
 } from 'lucide-react';
 import { LinkedStudentProfile, StudentProgress, UserProfile } from '../../types';
 import {
@@ -26,7 +28,9 @@ import {
   updateLinkedChildCode,
   deleteLinkedChild,
   loadStudentProgressFromCloud,
-  setStudentCloudId
+  setStudentCloudId,
+  verifyStudentSyncInCloud,
+  resyncStudentCodeInCloud
 } from '../../utils/firebase';
 import { saveStudentProgress } from '../../utils/storage';
 
@@ -55,6 +59,54 @@ export const LinkedStudentsManager: React.FC<LinkedStudentsManagerProps> = ({
   const [editingStudentId, setEditingStudentId] = useState<string | null>(null);
   const [editCodeValue, setEditCodeValue] = useState<string>('');
   const [updatingCode, setUpdatingCode] = useState<boolean>(false);
+
+  // Diagnostic sync state
+  const [checkingSyncStudentId, setCheckingSyncStudentId] = useState<string | null>(null);
+  const [syncStatusMap, setSyncStatusMap] = useState<Record<string, { isSynced: boolean; message: string }>>({});
+  const [resyncingStudentId, setResyncingStudentId] = useState<string | null>(null);
+
+  const handleVerifySync = async (child: LinkedStudentProfile) => {
+    setCheckingSyncStudentId(child.studentId);
+    setErrorMsg(null);
+    try {
+      const res = await verifyStudentSyncInCloud(child);
+      setSyncStatusMap((prev) => ({
+        ...prev,
+        [child.studentId]: { isSynced: res.isSynced, message: res.message }
+      }));
+      if (res.isSynced) {
+        setSuccessMsg(res.message);
+      } else {
+        setErrorMsg(res.message);
+      }
+    } catch {
+      setErrorMsg('שגיאה בבדיקת הסנכרון בענן');
+    } finally {
+      setCheckingSyncStudentId(null);
+    }
+  };
+
+  const handleForceResync = async (child: LinkedStudentProfile) => {
+    if (!parentProfile.uid) return;
+    setResyncingStudentId(child.studentId);
+    setErrorMsg(null);
+    try {
+      const res = await resyncStudentCodeInCloud(child, parentProfile.uid);
+      if (res.success) {
+        setSuccessMsg(res.message);
+        setSyncStatusMap((prev) => ({
+          ...prev,
+          [child.studentId]: { isSynced: true, message: res.message }
+        }));
+      } else {
+        setErrorMsg(res.message);
+      }
+    } catch {
+      setErrorMsg('שגיאה בסנכרון מול הענן');
+    } finally {
+      setResyncingStudentId(null);
+    }
+  };
 
   const fetchChildren = async () => {
     if (!parentProfile.uid) {
@@ -438,6 +490,53 @@ export const LinkedStudentsManager: React.FC<LinkedStudentsManagerProps> = ({
                     title="מחק תלמיד"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Cloud Sync Diagnostic Status */}
+              <div className="flex items-center justify-between gap-2 bg-white/80 p-2 rounded-xl border border-slate-200 text-[11px]">
+                <div className="flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-indigo-600 shrink-0" />
+                  {syncStatusMap[child.studentId]?.isSynced ? (
+                    <span className="text-emerald-700 font-bold flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>מסונכרן 100% בענן</span>
+                    </span>
+                  ) : syncStatusMap[child.studentId] && !syncStatusMap[child.studentId].isSynced ? (
+                    <span className="text-amber-700 font-bold">סנכרון חסר</span>
+                  ) : (
+                    <span className="text-slate-600 font-medium">סטטוס סנכרון ענן</span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  {syncStatusMap[child.studentId] && !syncStatusMap[child.studentId].isSynced && (
+                    <button
+                      type="button"
+                      onClick={() => handleForceResync(child)}
+                      disabled={resyncingStudentId === child.studentId}
+                      className="px-2 py-1 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-lg text-[10px] flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                    >
+                      {resyncingStudentId === child.studentId ? (
+                        <RefreshCw className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <span>סנכרן עכשיו 🔄</span>
+                      )}
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => handleVerifySync(child)}
+                    disabled={checkingSyncStudentId === child.studentId}
+                    className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-lg text-[10px] border border-indigo-200 flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                  >
+                    {checkingSyncStudentId === child.studentId ? (
+                      <RefreshCw className="w-3 h-3 animate-spin text-indigo-600" />
+                    ) : (
+                      <span>בדוק סנכרון 🔍</span>
+                    )}
                   </button>
                 </div>
               </div>
