@@ -7,24 +7,25 @@ import {
   Lock,
   User,
   ArrowRight,
-  CheckCircle2,
   AlertCircle,
-  HelpCircle,
   X,
   RefreshCw,
-  KeyRound
+  QrCode,
+  Share2,
+  Check
 } from 'lucide-react';
 import {
   loginParentWithGoogle,
   loginParentWithEmail,
   registerParentWithEmail,
-  findStudentByLoginCode,
+  findStudentByMagicToken,
   saveUserProfileToStorage,
   getSavedUserProfile,
   logoutUser,
-  setStudentCloudId
+  setStudentCloudId,
+  getAllCachedStudentsOnDevice
 } from '../../utils/firebase';
-import { UserProfile, StudentProgress } from '../../types';
+import { UserProfile, StudentProgress, LinkedStudentProfile } from '../../types';
 import { saveStudentProgress } from '../../utils/storage';
 
 interface AuthModalProps {
@@ -42,12 +43,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'student' | 'parent'>(defaultTab);
 
-  // Student login states
-  const [studentCodeInput, setStudentCodeInput] = useState<string>('');
+  // Student Magic Link input state
+  const [magicTokenInput, setMagicTokenInput] = useState<string>('');
   const [studentLoading, setStudentLoading] = useState<boolean>(false);
   const [studentError, setStudentError] = useState<string | null>(null);
-  const [failedStudentAttempts, setFailedStudentAttempts] = useState<number>(0);
-  const [studentLockoutUntil, setStudentLockoutUntil] = useState<number>(0);
 
   // Parent auth states
   const [isRegisterMode, setIsRegisterMode] = useState<boolean>(false);
@@ -57,8 +56,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [parentLoading, setParentLoading] = useState<boolean>(false);
   const [parentError, setParentError] = useState<string | null>(null);
 
-  // Logout handler
   const currentSavedProfile = getSavedUserProfile();
+  const savedStudentsOnDevice = getAllCachedStudentsOnDevice();
 
   const handleLogoutCurrentProfile = async () => {
     await logoutUser();
@@ -73,19 +72,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   if (!isOpen) return null;
 
-  // 1. Handle Student Code Login
-  const handleStudentLogin = async (e: React.FormEvent) => {
+  // 1. Handle Magic Token / Link Login
+  const handleMagicTokenLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // Check rate-limiting lockout
-    if (studentLockoutUntil && Date.now() < studentLockoutUntil) {
-      const remainingSec = Math.ceil((studentLockoutUntil - Date.now()) / 1000);
-      setStudentError(`נרשמו מספר ניסיונות שגויים רצופים. מטעמי אבטחה, נא להמתין ${remainingSec} שניות ולנסות שוב.`);
-      return;
-    }
-
-    if (!studentCodeInput.trim()) {
-      setStudentError('נא להזין את קוד התלמיד שקיבלת מההורה');
+    if (!magicTokenInput.trim()) {
+      setStudentError('נא להדביק את קישור הכניסה שקיבלת מההורה');
       return;
     }
 
@@ -93,43 +84,64 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setStudentError(null);
 
     try {
-      const cleanCode = studentCodeInput.trim().replace(/\s+/g, '').toUpperCase();
-      const res = await findStudentByLoginCode(cleanCode);
+      // Extract token from full URL if pasted
+      let token = magicTokenInput.trim();
+      if (token.includes('studentToken=')) {
+        token = token.split('studentToken=')[1].split('&')[0];
+      } else if (token.includes('magicToken=')) {
+        token = token.split('magicToken=')[1].split('&')[0];
+      }
 
-      if (res.success && res.progress && res.studentId) {
-        setFailedStudentAttempts(0);
-        setStudentLockoutUntil(0);
-        setStudentCloudId(res.studentId);
+      const res = await findStudentByMagicToken(token);
+
+      if (res.success && res.student && res.progress) {
+        setStudentCloudId(res.student.studentId);
         saveStudentProgress(res.progress);
 
         const profile: UserProfile = {
           role: 'student',
-          displayName: res.studentName || 'תלמיד/ה',
-          studentCode: cleanCode,
-          uid: res.studentId
+          displayName: res.student.studentName,
+          uid: res.student.studentId
         };
 
         saveUserProfileToStorage(profile);
         onLoginSuccess(profile, res.progress);
         onClose();
       } else {
-        const nextAttempts = failedStudentAttempts + 1;
-        setFailedStudentAttempts(nextAttempts);
-
-        if (nextAttempts >= 5) {
-          const lockoutTime = Date.now() + 60000; // 60 seconds lockout
-          setStudentLockoutUntil(lockoutTime);
-          setFailedStudentAttempts(0);
-          setStudentError('חסימת אבטחה זמנית: 5 ניסיונות כושלים ברצף. נא להמתין 60 שניות ולנסות שוב.');
-        } else {
-          setStudentError(
-            (res.error || 'קוד התלמיד לא נמצא. בדוק/י עם ההורה ונסה שוב.') +
-              ` (ניסיון ${nextAttempts} מתוך 5)`
-          );
-        }
+        setStudentError(res.error || 'קישור הכניסה לא נמצא. פנו להורה לקבלת קישור חדש.');
       }
     } catch {
-      setStudentError('שגיאה בחיבור למערכת. אנא בדוק את החיבור לרשת ונסה שוב.');
+      setStudentError('שגיאה בחיבור למערכת. אנא בדקו את החיבור לרשת ונסו שוב.');
+    } finally {
+      setStudentLoading(false);
+    }
+  };
+
+  // Quick 1-click login for saved student
+  const handleQuickStudentLogin = async (student: LinkedStudentProfile) => {
+    setStudentLoading(true);
+    setStudentError(null);
+    try {
+      const token = student.magicToken || student.studentId;
+      const res = await findStudentByMagicToken(token);
+      if (res.success && res.student && res.progress) {
+        setStudentCloudId(res.student.studentId);
+        saveStudentProgress(res.progress);
+
+        const profile: UserProfile = {
+          role: 'student',
+          displayName: res.student.studentName,
+          uid: res.student.studentId
+        };
+
+        saveUserProfileToStorage(profile);
+        onLoginSuccess(profile, res.progress);
+        onClose();
+      } else {
+        setStudentError('לא ניתן היה לטעון את הפרופיל. בקשו מההורה קישור חדש ב-WhatsApp.');
+      }
+    } catch {
+      setStudentError('שגיאה בחיבור למערכת');
     } finally {
       setStudentLoading(false);
     }
@@ -315,44 +327,70 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           {/* TAB 1: STUDENT LOGIN */}
           {activeTab === 'student' && (
             <div className="flex flex-col gap-4">
-              <div className="bg-amber-50/80 border border-amber-200/80 p-3.5 rounded-2xl text-xs text-amber-950 flex items-start gap-2.5">
-                <KeyRound className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div className="bg-emerald-50/90 border border-emerald-200 p-3.5 rounded-2xl text-xs text-emerald-950 flex items-start gap-2.5">
+                <QrCode className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                 <div className="leading-relaxed">
-                  <strong>כניסה מהירה בטלפון או בטאבלט:</strong> הקלד/י את קוד התלמיד האישי שקיבלת מההורה (למשל: <span className="font-mono font-bold">ITAY-482</span>) כדי להמשיך מהמקום שבו עצרת.
+                  <strong>הדרך הנוחה ביותר להתחבר:</strong> לחצו על <strong>קישור הכניסה האישי</strong> שההורה שלח לכם ב-WhatsApp, או סרקו את קוד ה-QR מהטלפון של ההורה להתחברות מיידית! 🚀
                 </div>
               </div>
 
-              <form onSubmit={handleStudentLogin} className="flex flex-col gap-3">
+              {/* Saved Children Cards for 1-Click Login on this device */}
+              {savedStudentsOnDevice.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  <label className="block text-xs font-bold text-slate-700">
+                    פרופילים שמורים במכשיר זה (התחברות בלחיצה אחת):
+                  </label>
+                  <div className="grid grid-cols-1 gap-2">
+                    {savedStudentsOnDevice.map((child) => (
+                      <button
+                        key={child.studentId}
+                        type="button"
+                        onClick={() => handleQuickStudentLogin(child)}
+                        disabled={studentLoading}
+                        className="p-3 bg-indigo-50/80 hover:bg-indigo-100 border border-indigo-200 rounded-2xl flex items-center justify-between transition-all cursor-pointer group"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white font-black text-sm flex items-center justify-center shadow-xs">
+                            {child.studentName.slice(0, 1)}
+                          </div>
+                          <div className="text-right">
+                            <div className="font-black text-slate-900 text-xs">{child.studentName}</div>
+                            <div className="text-[10px] text-indigo-700 font-medium">התחברות בלחיצה אחת</div>
+                          </div>
+                        </div>
+                        <ArrowRight className="w-4 h-4 text-indigo-600 rotate-180 group-hover:-translate-x-1 transition-transform" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Manual Link / Token Paste Fallback */}
+              <form onSubmit={handleMagicTokenLogin} className="flex flex-col gap-3 pt-1">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                    קוד תלמיד אישי:
+                    או הדביקו קישור כניסה / קוד אישי:
                   </label>
                   <div className="relative">
                     <input
                       type="text"
-                      value={studentCodeInput}
+                      value={magicTokenInput}
                       onChange={(e) => {
-                        const cleanVal = e.target.value.replace(/\s+/g, '').toUpperCase();
-                        setStudentCodeInput(cleanVal);
+                        setMagicTokenInput(e.target.value);
                         setStudentError(null);
                       }}
-                      placeholder="הזן/הזיני קוד (למשל: 2016 או ITAY-482)"
-                      className="w-full bg-slate-50 border-2 border-slate-300 focus:border-indigo-600 focus:bg-white rounded-2xl px-4 py-3 text.base font-mono font-black uppercase text-center tracking-wider transition-all outline-none"
-                      autoFocus
-                      autoCapitalize="characters"
-                      autoCorrect="off"
-                      spellCheck={false}
-                      inputMode="text"
+                      placeholder="הדבק/י את קישור ה-Magic Link מכאן..."
+                      className="w-full bg-slate-50 border-2 border-slate-300 focus:border-indigo-600 focus:bg-white rounded-2xl px-4 py-3 text-xs font-medium text-slate-800 transition-all outline-none"
                     />
-                    {studentCodeInput && (
+                    {magicTokenInput && (
                       <button
                         type="button"
                         onClick={() => {
-                          setStudentCodeInput('');
+                          setMagicTokenInput('');
                           setStudentError(null);
                         }}
-                        className="absolute left-3 top-3.5 text-slate-400 hover:text-slate-600 p-1 rounded-full text-xs cursor-pointer"
-                        title="נקה קוד"
+                        className="absolute left-3 top-3 text-slate-400 hover:text-slate-600 p-1 rounded-full text-xs cursor-pointer"
+                        title="נקה"
                       >
                         ✕
                       </button>
@@ -369,21 +407,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
                 <button
                   type="submit"
-                  disabled={studentLoading || !studentCodeInput.trim()}
-                  className="w-full py-3.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-black text-sm rounded-2xl shadow-lg shadow-indigo-500/25 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                  disabled={studentLoading || !magicTokenInput.trim()}
+                  className="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-black text-xs rounded-2xl shadow-md shadow-indigo-500/20 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
                 >
                   {studentLoading ? (
                     <RefreshCw className="w-4 h-4 animate-spin" />
                   ) : (
                     <>
-                      <span>התחל ללמוד ולתרגל</span>
+                      <span>התחבר מקישור 🚀</span>
                       <ArrowRight className="w-4 h-4 rotate-180" />
                     </>
                   )}
                 </button>
               </form>
 
-              <div className="relative flex py-2 items-center">
+              <div className="relative flex py-1 items-center">
                 <div className="flex-grow border-t border-slate-200"></div>
                 <span className="flex-shrink mx-3 text-xs text-slate-400 font-bold">או</span>
                 <div className="flex-grow border-t border-slate-200"></div>
@@ -394,7 +432,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 onClick={handleGuestContinue}
                 className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer"
               >
-                המשך כאורח / תרגול ללא קוד (נשמר במכשיר זה)
+                המשך כאורח / תרגול ללא חשבון (נשמר במכשיר זה)
               </button>
             </div>
           )}

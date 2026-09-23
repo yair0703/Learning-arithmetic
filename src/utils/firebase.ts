@@ -465,8 +465,8 @@ export function saveCachedStudentProfileLocally(student: LinkedStudentProfile, p
     const raw = localStorage.getItem(ALL_KNOWN_STUDENTS_CACHE_KEY);
     const map: Record<string, { student: LinkedStudentProfile; progress?: StudentProgress }> = raw ? JSON.parse(raw) : {};
     
-    if (student.studentCode) {
-      map[student.studentCode.toUpperCase()] = { student, progress: progressData };
+    if (student.magicToken) {
+      map[student.magicToken.toUpperCase()] = { student, progress: progressData };
     }
     if (student.studentId) {
       map[student.studentId.toUpperCase()] = { student, progress: progressData };
@@ -476,6 +476,19 @@ export function saveCachedStudentProfileLocally(student: LinkedStudentProfile, p
   } catch {
     // ignore
   }
+}
+
+export function getCachedStudentProgressLocally(tokenOrId: string): StudentProgress | null {
+  try {
+    const cleanKey = tokenOrId.trim().toUpperCase();
+    const raw = localStorage.getItem(ALL_KNOWN_STUDENTS_CACHE_KEY);
+    if (!raw) return null;
+    const map = JSON.parse(raw);
+    if (map[cleanKey]?.progress) return map[cleanKey].progress;
+  } catch {
+    // ignore
+  }
+  return null;
 }
 
 export function findCachedStudentByCode(code: string): { student?: LinkedStudentProfile; progress?: StudentProgress } | null {
@@ -535,12 +548,44 @@ export function removeCachedStudentProfileLocally(studentId: string, studentCode
 }
 
 /**
- * Creates a new linked child/student profile under a parent account
+ * Constructs the Magic Link URL for a student profile
+ */
+export function getMagicLinkUrl(student: LinkedStudentProfile): string {
+  const token = student.magicToken || student.studentId;
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+  return `${baseUrl}/?studentToken=${encodeURIComponent(token)}`;
+}
+
+/**
+ * Gets all student profiles saved on this device for 1-click quick login
+ */
+export function getAllCachedStudentsOnDevice(): LinkedStudentProfile[] {
+  try {
+    const raw = localStorage.getItem(ALL_KNOWN_STUDENTS_CACHE_KEY);
+    if (!raw) return [];
+    const map: Record<string, { student: LinkedStudentProfile }> = JSON.parse(raw);
+    const list: LinkedStudentProfile[] = [];
+    const seenIds = new Set<string>();
+
+    Object.values(map).forEach((entry) => {
+      if (entry?.student && entry.student.studentId && !seenIds.has(entry.student.studentId)) {
+        seenIds.add(entry.student.studentId);
+        list.push(entry.student);
+      }
+    });
+
+    return list;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Creates a new linked child/student profile under a parent account with a Magic Link token
  */
 export async function createLinkedChildProfile(
   parentId: string,
-  studentName: string,
-  customExactCode?: string
+  studentName: string
 ): Promise<{ success: boolean; student?: LinkedStudentProfile; error?: string }> {
   const db = getFirebaseDb();
 
@@ -548,38 +593,13 @@ export async function createLinkedChildProfile(
     const cleanName = studentName.trim();
     if (!cleanName) return { success: false, error: 'אנא הזן שם תלמיד/ה' };
 
-    // Use exact code specified by parent
-    let studentCode = '';
-    if (customExactCode && customExactCode.trim()) {
-      studentCode = customExactCode.trim().replace(/\s+/g, '').toUpperCase();
-    } else {
-      studentCode = cleanName.replace(/[^a-zA-Z0-9א-ת]/g, '').slice(0, 8).toUpperCase() || 'TALMID';
-    }
-
-    // 1. Global Code Collision Check in Firestore
-    if (db) {
-      try {
-        const aliasCheck = await getDoc(doc(db, 'students', `code_${studentCode}`));
-        if (aliasCheck.exists()) {
-          const existingData = aliasCheck.data();
-          if (existingData.parentId && existingData.parentId !== parentId) {
-            return {
-              success: false,
-              error: `קוד הכניסה "${studentCode}" כבר תפוס במערכת ע"י תלמיד אחר. נא לבחור קוד ייחודי.`
-            };
-          }
-        }
-      } catch (e) {
-        console.warn('Global code collision check warning:', e);
-      }
-    }
-
     const studentDocId = `student_${parentId}_${Date.now()}`;
+    const magicToken = `st_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
     const newStudentProfile: LinkedStudentProfile = {
       studentId: studentDocId,
       studentName: cleanName,
-      studentCode,
+      magicToken,
       parentId,
       createdAt: new Date().toISOString(),
       lastActiveDate: new Date().toISOString().slice(0, 10),
@@ -590,12 +610,9 @@ export async function createLinkedChildProfile(
 
     const initialProgress = getInitialProgress();
 
-    // Cache locally immediately so child appears right away
+    // Cache locally immediately
     const existingCached = getCachedChildrenForParent(parentId);
-    const filteredCached = existingCached.filter(
-      (c) => c.studentCode?.toUpperCase() !== studentCode && c.studentId !== studentDocId
-    );
-    saveCachedChildrenForParent(parentId, [newStudentProfile, ...filteredCached]);
+    saveCachedChildrenForParent(parentId, [newStudentProfile, ...existingCached.filter((c) => c.studentId !== studentDocId)]);
     saveCachedStudentProfileLocally(newStudentProfile, initialProgress);
 
     if (db) {
@@ -603,18 +620,18 @@ export async function createLinkedChildProfile(
         ...initialProgress,
         studentId: studentDocId,
         studentName: cleanName,
-        studentCode,
+        magicToken,
         parentId,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
 
       const studentDocRef = doc(db, 'students', studentDocId);
-      const codeAliasDocRef = doc(db, 'students', `code_${studentCode}`);
+      const tokenAliasDocRef = doc(db, 'students', `token_${magicToken}`);
 
       const writePromise = Promise.all([
         setDoc(studentDocRef, payload, { merge: true }),
-        setDoc(codeAliasDocRef, payload, { merge: true })
+        setDoc(tokenAliasDocRef, payload, { merge: true })
       ]);
 
       const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 8000));
@@ -626,6 +643,98 @@ export async function createLinkedChildProfile(
     const errorMsg = err instanceof Error ? err.message : 'שגיאה ביצירת פרופיל תלמיד';
     console.error('Error creating linked student:', err);
     return { success: false, error: errorMsg };
+  }
+}
+
+/**
+ * Quick student auto-login by Magic Token
+ */
+export async function findStudentByMagicToken(
+  token: string
+): Promise<{ success: boolean; progress?: StudentProgress; student?: LinkedStudentProfile; studentId?: string; studentName?: string; error?: string }> {
+  const cleanToken = token.trim();
+  if (!cleanToken) return { success: false, error: 'קישור כניסה לא תקין' };
+
+  // 1. Check local cache first
+  const cachedList = getAllCachedStudentsOnDevice();
+  const cachedMatch = cachedList.find(
+    (s) => s.magicToken === cleanToken || s.studentId === cleanToken
+  );
+
+  const db = getFirebaseDb();
+  if (!db) {
+    if (cachedMatch) {
+      const progress = getCachedStudentProgressLocally(cachedMatch.studentId) || getInitialProgress();
+      return {
+        success: true,
+        student: cachedMatch,
+        progress,
+        studentId: cachedMatch.studentId,
+        studentName: cachedMatch.studentName
+      };
+    }
+    return { success: false, error: 'מסד הנתונים בענן אינו זמין כרגע במצב לא מקוון' };
+  }
+
+  await ensureAuthSession();
+
+  try {
+    const tokenAliasRef = doc(db, 'students', `token_${cleanToken}`);
+    const directDocRef = doc(db, 'students', cleanToken);
+
+    const [tokenSnap, directSnap] = await Promise.all([
+      getDoc(tokenAliasRef).catch(() => null),
+      getDoc(directDocRef).catch(() => null)
+    ]);
+
+    const docResult = (tokenSnap && tokenSnap.exists() ? tokenSnap : directSnap && directSnap.exists() ? directSnap : null);
+
+    if (docResult) {
+      const data = docResult.data();
+      const realStudentId = data.studentId || docResult.id;
+      const studentProfile: LinkedStudentProfile = {
+        studentId: realStudentId,
+        studentName: data.studentName || 'תלמיד/ה',
+        magicToken: data.magicToken || cleanToken,
+        parentId: data.parentId || '',
+        createdAt: data.createdAt || new Date().toISOString()
+      };
+
+      saveCachedStudentProfileLocally(studentProfile, data as StudentProgress);
+
+      return {
+        success: true,
+        student: studentProfile,
+        progress: data as StudentProgress,
+        studentId: realStudentId,
+        studentName: data.studentName || 'תלמיד/ה'
+      };
+    }
+
+    if (cachedMatch) {
+      const progress = getCachedStudentProgressLocally(cachedMatch.studentId) || getInitialProgress();
+      return {
+        success: true,
+        student: cachedMatch,
+        progress,
+        studentId: cachedMatch.studentId,
+        studentName: cachedMatch.studentName
+      };
+    }
+
+    return { success: false, error: 'קישור הכניסה אינו פעיל או לא נמצא בענן.' };
+  } catch (err) {
+    if (cachedMatch) {
+      const progress = getCachedStudentProgressLocally(cachedMatch.studentId) || getInitialProgress();
+      return {
+        success: true,
+        student: cachedMatch,
+        progress,
+        studentId: cachedMatch.studentId,
+        studentName: cachedMatch.studentName
+      };
+    }
+    return { success: false, error: 'שגיאה בחיבור לענן. אנא בדקו את החיבור לרשת ונסו שוב.' };
   }
 }
 
@@ -804,19 +913,19 @@ export async function getLinkedChildrenForParent(
 
     const list: LinkedStudentProfile[] = [];
     querySnapshot.forEach((docSnap) => {
-      // Ignore alias documents starting with code_
-      if (docSnap.id.startsWith('code_')) return;
+      // Ignore alias documents starting with code_ or token_
+      if (docSnap.id.startsWith('code_') || docSnap.id.startsWith('token_')) return;
 
       const data = docSnap.data();
       const totalSolved = data.totalSolved || 0;
       const totalCorrect = data.totalCorrect || 0;
       const accuracyRate = totalSolved > 0 ? Math.round((totalCorrect / totalSolved) * 100) : 0;
-      const studentCode = (data.studentCode || docSnap.id).toString().trim().toUpperCase();
+      const magicToken = data.magicToken || docSnap.id;
 
       const studentItem: LinkedStudentProfile = {
         studentId: docSnap.id,
         studentName: data.studentName || 'תלמיד/ה',
-        studentCode,
+        magicToken,
         parentId: data.parentId || parentId,
         createdAt: data.createdAt || new Date().toISOString(),
         lastActiveDate: data.lastActiveDate,
@@ -828,10 +937,10 @@ export async function getLinkedChildrenForParent(
       list.push(studentItem);
       saveCachedStudentProfileLocally(studentItem, data as StudentProgress);
 
-      // Auto-backfill alias document code_XXXX in Firestore for legacy students
-      if (db && studentCode) {
-        const aliasRef = doc(db, 'students', `code_${studentCode}`);
-        setDoc(aliasRef, { ...data, studentCode, studentId: docSnap.id }, { merge: true }).catch(() => {});
+      // Backfill token alias document token_XXXX in Firestore for legacy students if needed
+      if (db && magicToken) {
+        const aliasRef = doc(db, 'students', `token_${magicToken}`);
+        setDoc(aliasRef, { ...data, magicToken, studentId: docSnap.id }, { merge: true }).catch(() => {});
       }
     });
 

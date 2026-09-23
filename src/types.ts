@@ -183,7 +183,8 @@ export interface UserProfile {
 export interface LinkedStudentProfile {
   studentId: string;
   studentName: string;
-  studentCode: string;
+  studentCode?: string;
+  magicToken?: string;
   parentId: string;
   createdAt: string;
   lastActiveDate?: string;

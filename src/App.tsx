@@ -10,7 +10,8 @@ import {
   saveUserProfileToStorage,
   logoutUser,
   getFirebaseAuth,
-  ensureAuthSession
+  ensureAuthSession,
+  findStudentByMagicToken
 } from './utils/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import {
@@ -108,6 +109,53 @@ export default function App() {
 
     return () => unsubscribe();
   }, []);
+
+  // Auto-login via Magic Link URL parameter (?studentToken=... or ?magicToken=... or ?token=...)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('studentToken') || params.get('magicToken') || params.get('st') || params.get('token');
+
+    if (token) {
+      findStudentByMagicToken(token)
+        .then((res) => {
+          if (res.success && res.student) {
+            setStudentCloudId(res.student.studentId);
+            if (res.progress) {
+              saveStudentProgress(res.progress);
+              setProgress(res.progress);
+            }
+            const profile: UserProfile = {
+              role: 'student',
+              displayName: res.student.studentName,
+              uid: res.student.studentId
+            };
+            saveUserProfileToStorage(profile);
+            setUserProfile(profile);
+            addToast({
+              type: 'success',
+              title: `שלום ${res.student.studentName}! 🎉`,
+              description: 'התחברת בהצלחה ללמידה ותרגול'
+            });
+            // Clean URL parameters cleanly
+            window.history.replaceState({}, document.title, window.location.pathname);
+          } else {
+            addToast({
+              type: 'error',
+              title: 'קישור כניסה לא פג תוקף או לא תקין',
+              description: 'בקשו מההורה לשלוח לכם קישור כניסה חדש ב-WhatsApp'
+            });
+          }
+        })
+        .catch(() => {
+          addToast({
+            type: 'error',
+            title: 'שגיאה בהתחברות',
+            description: 'לא ניתן היה להתחבר מקישור זה'
+          });
+        });
+    }
+  }, [addToast]);
 
   // Flush offline queue to cloud and notify user
   const processOfflineQueue = useCallback(async (isNetworkRestored = false) => {

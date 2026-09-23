@@ -8,31 +8,24 @@ import {
   Sparkles,
   ArrowRight,
   RefreshCw,
-  Trophy,
-  Award,
-  Calendar,
   AlertCircle,
-  HelpCircle,
   Smartphone,
-  Edit2,
   Trash2,
-  X,
-  ShieldCheck,
-  CheckCircle2
+  Share2,
+  QrCode
 } from 'lucide-react';
 import { LinkedStudentProfile, StudentProgress, UserProfile } from '../../types';
 import {
   getLinkedChildrenForParent,
   getCachedChildrenForParent,
   createLinkedChildProfile,
-  updateLinkedChildCode,
   deleteLinkedChild,
   loadStudentProgressFromCloud,
   setStudentCloudId,
-  verifyStudentSyncInCloud,
-  resyncStudentCodeInCloud
+  getMagicLinkUrl
 } from '../../utils/firebase';
 import { saveStudentProgress } from '../../utils/storage';
+import { StudentQrModal } from './StudentQrModal';
 
 interface LinkedStudentsManagerProps {
   parentProfile: UserProfile;
@@ -42,71 +35,17 @@ interface LinkedStudentsManagerProps {
 
 export const LinkedStudentsManager: React.FC<LinkedStudentsManagerProps> = ({
   parentProfile,
-  currentProgress,
   onSelectStudentProgress
 }) => {
   const [children, setChildren] = useState<LinkedStudentProfile[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [isAddingOpen, setIsAddingOpen] = useState<boolean>(false);
   const [newStudentName, setNewStudentName] = useState<string>('');
-  const [newExactCode, setNewExactCode] = useState<string>('');
   const [creating, setCreating] = useState<boolean>(false);
-  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [copiedStudentId, setCopiedStudentId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
-
-  // Editing code state
-  const [editingStudentId, setEditingStudentId] = useState<string | null>(null);
-  const [editCodeValue, setEditCodeValue] = useState<string>('');
-  const [updatingCode, setUpdatingCode] = useState<boolean>(false);
-
-  // Diagnostic sync state
-  const [checkingSyncStudentId, setCheckingSyncStudentId] = useState<string | null>(null);
-  const [syncStatusMap, setSyncStatusMap] = useState<Record<string, { isSynced: boolean; message: string }>>({});
-  const [resyncingStudentId, setResyncingStudentId] = useState<string | null>(null);
-
-  const handleVerifySync = async (child: LinkedStudentProfile) => {
-    setCheckingSyncStudentId(child.studentId);
-    setErrorMsg(null);
-    try {
-      const res = await verifyStudentSyncInCloud(child);
-      setSyncStatusMap((prev) => ({
-        ...prev,
-        [child.studentId]: { isSynced: res.isSynced, message: res.message }
-      }));
-      if (res.isSynced) {
-        setSuccessMsg(res.message);
-      } else {
-        setErrorMsg(res.message);
-      }
-    } catch {
-      setErrorMsg('שגיאה בבדיקת הסנכרון בענן');
-    } finally {
-      setCheckingSyncStudentId(null);
-    }
-  };
-
-  const handleForceResync = async (child: LinkedStudentProfile) => {
-    if (!parentProfile.uid) return;
-    setResyncingStudentId(child.studentId);
-    setErrorMsg(null);
-    try {
-      const res = await resyncStudentCodeInCloud(child, parentProfile.uid);
-      if (res.success) {
-        setSuccessMsg(res.message);
-        setSyncStatusMap((prev) => ({
-          ...prev,
-          [child.studentId]: { isSynced: true, message: res.message }
-        }));
-      } else {
-        setErrorMsg(res.message);
-      }
-    } catch {
-      setErrorMsg('שגיאה בסנכרון מול הענן');
-    } finally {
-      setResyncingStudentId(null);
-    }
-  };
+  const [selectedQrStudent, setSelectedQrStudent] = useState<LinkedStudentProfile | null>(null);
 
   const fetchChildren = async () => {
     if (!parentProfile.uid) {
@@ -147,17 +86,6 @@ export const LinkedStudentsManager: React.FC<LinkedStudentsManagerProps> = ({
       setErrorMsg('נא להזין את שם התלמיד/ה');
       return;
     }
-    const targetCode = newExactCode.replace(/\s+/g, '').toUpperCase();
-    if (!targetCode) {
-      setErrorMsg('נא להזין קוד כניסה לתלמיד (למשל: 1234 או 2016)');
-      return;
-    }
-
-    const isDuplicateCode = children.some((c) => c.studentCode?.toUpperCase() === targetCode);
-    if (isDuplicateCode) {
-      setErrorMsg(`קוד הכניסה "${targetCode}" כבר משויך לילד/ה אחר/ת ברשימה שלך. נא לבחור קוד ייחודי.`);
-      return;
-    }
 
     setCreating(true);
     setErrorMsg(null);
@@ -166,16 +94,16 @@ export const LinkedStudentsManager: React.FC<LinkedStudentsManagerProps> = ({
     try {
       const res = await createLinkedChildProfile(
         parentProfile.uid,
-        newStudentName.trim(),
-        newExactCode.trim()
+        newStudentName.trim()
       );
 
       if (res.success && res.student) {
-        setSuccessMsg(`התלמיד "${res.student.studentName}" נוצר בהצלחה עם קוד כניסה מדויק: ${res.student.studentCode}`);
+        setSuccessMsg(`התלמיד/ה "${res.student.studentName}" נוצר/ה בהצלחה! לחץ על "שתף ב-WhatsApp" או "קוד QR" כדי לחבר אותם.`);
         setNewStudentName('');
-        setNewExactCode('');
         setIsAddingOpen(false);
         setChildren((prev) => [res.student!, ...prev.filter((c) => c.studentId !== res.student!.studentId)]);
+        // Open QR modal automatically for instant share
+        setSelectedQrStudent(res.student);
       } else {
         setErrorMsg(res.error || 'שגיאה ביצירת פרופיל התלמיד');
       }
@@ -187,60 +115,22 @@ export const LinkedStudentsManager: React.FC<LinkedStudentsManagerProps> = ({
     }
   };
 
-  const handleStartEditCode = (child: LinkedStudentProfile) => {
-    setEditingStudentId(child.studentId);
-    setEditCodeValue(child.studentCode);
-  };
-
-  const handleSaveEditCode = async (studentId: string) => {
-    if (!editCodeValue.trim()) return;
-    const cleanNewCode = editCodeValue.trim().replace(/\s+/g, '').toUpperCase();
-    const currentChild = children.find((c) => c.studentId === studentId);
-    const oldCode = currentChild?.studentCode;
-
-    setUpdatingCode(true);
-    setErrorMsg(null);
-
-    // Optimistically update code in state
-    setChildren((prev) =>
-      prev.map((c) => (c.studentId === studentId ? { ...c, studentCode: cleanNewCode } : c))
-    );
-
-    try {
-      const res = await updateLinkedChildCode(studentId, cleanNewCode, parentProfile.uid, oldCode);
-      if (res.success) {
-        setSuccessMsg(`קוד הכניסה עודכן בהצלחה ל: ${cleanNewCode}`);
-        setEditingStudentId(null);
-      } else {
-        setErrorMsg(res.error || 'שגיאה בעדכון הקוד בשרת הענן');
-        fetchChildren(); // Revert on failure
-      }
-    } catch {
-      setErrorMsg('שגיאה בעדכון הקוד בשרת הענן');
-      fetchChildren();
-    } finally {
-      setUpdatingCode(false);
-    }
-  };
-
   const handleDeleteChild = async (child: LinkedStudentProfile) => {
-    if (!window.confirm(`האם למחוק את התלמיד/ה "${child.studentName}" (קוד: ${child.studentCode})?`)) {
+    if (!window.confirm(`האם למחוק את התלמיד/ה "${child.studentName}"?`)) {
       return;
     }
 
     setErrorMsg(null);
     setSuccessMsg(null);
 
-    // 1. Optimistically remove from state instantly for zero-wait UX
     setChildren((prev) => prev.filter((c) => c.studentId !== child.studentId));
     setSuccessMsg(`התלמיד "${child.studentName}" הוסר בהצלחה`);
 
-    // 2. Perform background deletion from Firestore & local storage
     try {
-      const res = await deleteLinkedChild(child.studentId, parentProfile.uid, child.studentCode);
+      const res = await deleteLinkedChild(child.studentId, parentProfile.uid);
       if (!res.success) {
         setErrorMsg(res.error || 'שגיאה במחיקת התלמיד משרת הענן');
-        fetchChildren(); // Revert if delete failed
+        fetchChildren();
       }
     } catch (err) {
       setErrorMsg('שגיאה במחיקת התלמיד');
@@ -249,15 +139,23 @@ export const LinkedStudentsManager: React.FC<LinkedStudentsManagerProps> = ({
     }
   };
 
-  const handleCopyCode = async (code: string) => {
+  const handleCopyMagicLink = async (child: LinkedStudentProfile) => {
+    const magicUrl = getMagicLinkUrl(child);
     try {
-      await navigator.clipboard.writeText(code);
-      setCopiedCode(code);
-      setTimeout(() => setCopiedCode(null), 2500);
+      await navigator.clipboard.writeText(magicUrl);
+      setCopiedStudentId(child.studentId);
+      setTimeout(() => setCopiedStudentId(null), 2500);
     } catch {
-      setCopiedCode(code);
-      setTimeout(() => setCopiedCode(null), 2500);
+      setCopiedStudentId(child.studentId);
+      setTimeout(() => setCopiedStudentId(null), 2500);
     }
+  };
+
+  const handleShareWhatsapp = (child: LinkedStudentProfile) => {
+    const magicUrl = getMagicLinkUrl(child);
+    const text = `שלום ${child.studentName}! 🎉 הנה קישור הכניסה האישי שלך לאפליקציית השברים והחשבון:\n${magicUrl}\nלחץ/י על הקישור והתחל/י לתרגל בכיף! 🚀`;
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
+    window.open(whatsappUrl, '_blank');
   };
 
   const handleViewChildReport = async (child: LinkedStudentProfile) => {
@@ -298,7 +196,7 @@ export const LinkedStudentsManager: React.FC<LinkedStudentsManagerProps> = ({
               </span>
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              הגדרת קוד אישי לכל ילד, מעקב התקדמות וצפייה בביצועים
+              חיבור מהיר באמצעות קישור Magic Link אישי וקוד QR ללא צורך בסיסמאות
             </p>
           </div>
         </div>
@@ -339,11 +237,11 @@ export const LinkedStudentsManager: React.FC<LinkedStudentsManagerProps> = ({
         >
           <h4 className="text-xs font-black text-indigo-950 flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-indigo-600" />
-            <span>הגדרת תלמיד/ה חדש/ה במערכת:</span>
+            <span>יצירת תלמיד/ה חדש/ה במערכת:</span>
           </h4>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
+          <div className="flex flex-col sm:flex-row items-center gap-3">
+            <div className="flex-1 w-full">
               <label className="block text-xs font-bold text-slate-700 mb-1">
                 שם התלמיד/ה:
               </label>
@@ -353,37 +251,22 @@ export const LinkedStudentsManager: React.FC<LinkedStudentsManagerProps> = ({
                 onChange={(e) => setNewStudentName(e.target.value)}
                 placeholder="למשל: ינון"
                 required
-                className="w-full bg-white border border-slate-300 focus:border-indigo-600 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 outline-none"
+                className="w-full bg-white border border-slate-300 focus:border-indigo-600 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 outline-none"
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                קוד כניסה לתלמיד (בדיוק מה שיוקלט):
-              </label>
-              <input
-                type="text"
-                value={newExactCode}
-                onChange={(e) => setNewExactCode(e.target.value.toUpperCase())}
-                placeholder="למשל: 1234 או YINON"
-                required
-                className="w-full bg-white border border-slate-300 focus:border-indigo-600 rounded-xl px-3 py-2 text-xs font-mono font-bold uppercase text-slate-800 outline-none"
-              />
-            </div>
-          </div>
-
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2">
-            <p className="text-[11px] text-slate-600 leading-tight">
-              הקוד שהזנת יהיה קוד הכניסה היחיד של הילד (ללא תוספות או מספרים אוטומטיים).
-            </p>
             <button
               type="submit"
-              disabled={creating || !newStudentName.trim() || !newExactCode.trim()}
-              className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs cursor-pointer disabled:opacity-50 shrink-0 flex items-center gap-2"
+              disabled={creating || !newStudentName.trim()}
+              className="w-full sm:w-auto mt-auto px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs cursor-pointer disabled:opacity-50 shrink-0 flex items-center justify-center gap-2"
             >
-              {creating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <span>שמור תלמיד וקוד כניסה</span>}
+              {creating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <span>צור פרופיל תלמיד 🚀</span>}
             </button>
           </div>
+
+          <p className="text-[11px] text-slate-500 leading-tight pt-1">
+            לאחר היצירה, ייצר עבור התלמיד קישור כניסה אישי וקוד QR ייחודי שתוכל לשלוח אליו ב-WhatsApp בלחיצת כפתור אחת!
+          </p>
         </form>
       )}
 
@@ -400,7 +283,7 @@ export const LinkedStudentsManager: React.FC<LinkedStudentsManagerProps> = ({
           </div>
           <h4 className="text-sm font-bold text-slate-800">עדיין לא הוספת תלמידים מקושרים</h4>
           <p className="text-xs text-slate-500 max-w-md">
-            לחץ על "+ הוסף תלמיד / ילד חדש" למעלה כדי להגדיר קוד כניסה נוח (כגון 1234) שהילד יוכל להזין בטלפון או בטאבלט שלו.
+            לחץ על "+ הוסף תלמיד / ילד חדש" למעלה כדי להפיק קישור כניסה ו-QR שהילד יוכל לפתוח בטלפון שלו בלחיצה אחת.
           </p>
         </div>
       ) : (
@@ -417,64 +300,7 @@ export const LinkedStudentsManager: React.FC<LinkedStudentsManagerProps> = ({
                   </div>
                   <div>
                     <h3 className="text-sm font-black text-slate-900">{child.studentName}</h3>
-                    
-                    {/* Code Display & Inline Editing */}
-                    {editingStudentId === child.studentId ? (
-                      <div className="flex items-center gap-1.5 mt-1">
-                        <input
-                          type="text"
-                          value={editCodeValue}
-                          onChange={(e) => setEditCodeValue(e.target.value.toUpperCase())}
-                          className="w-28 bg-white border border-indigo-400 rounded-lg px-2 py-0.5 text-xs font-mono font-bold text-indigo-900 outline-none"
-                          placeholder="קוד חדש..."
-                          autoFocus
-                        />
-                        <button
-                          type="button"
-                          onClick={() => handleSaveEditCode(child.studentId)}
-                          disabled={updatingCode}
-                          className="bg-indigo-600 text-white p-1 rounded-lg hover:bg-indigo-700 cursor-pointer"
-                          title="שמור קוד"
-                        >
-                          {updatingCode ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setEditingStudentId(null)}
-                          className="bg-slate-200 text-slate-600 p-1 rounded-lg hover:bg-slate-300 cursor-pointer"
-                          title="ביטול"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mt-0.5">
-                        <span>קוד כניסה:</span>
-                        <span className="font-mono font-black text-indigo-700 bg-white px-2 py-0.5 rounded border border-indigo-200">
-                          {child.studentCode}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => handleCopyCode(child.studentCode)}
-                          className="text-slate-400 hover:text-indigo-600 p-0.5 cursor-pointer"
-                          title="העתק קוד כניסה"
-                        >
-                          {copiedCode === child.studentCode ? (
-                            <Check className="w-3.5 h-3.5 text-emerald-600" />
-                          ) : (
-                            <Copy className="w-3.5 h-3.5" />
-                          )}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleStartEditCode(child)}
-                          className="text-slate-400 hover:text-indigo-600 p-0.5 cursor-pointer"
-                          title="ערוך קוד כניסה"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    )}
+                    <p className="text-[11px] text-slate-500 mt-0.5">חיבור Magic Link פעיל 🟢</p>
                   </div>
                 </div>
 
@@ -494,51 +320,44 @@ export const LinkedStudentsManager: React.FC<LinkedStudentsManagerProps> = ({
                 </div>
               </div>
 
-              {/* Cloud Sync Diagnostic Status */}
-              <div className="flex items-center justify-between gap-2 bg-white/80 p-2 rounded-xl border border-slate-200 text-[11px]">
-                <div className="flex items-center gap-1.5">
-                  <ShieldCheck className="w-4 h-4 text-indigo-600 shrink-0" />
-                  {syncStatusMap[child.studentId]?.isSynced ? (
-                    <span className="text-emerald-700 font-bold flex items-center gap-1">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>מסונכרן 100% בענן</span>
-                    </span>
-                  ) : syncStatusMap[child.studentId] && !syncStatusMap[child.studentId].isSynced ? (
-                    <span className="text-amber-700 font-bold">סנכרון חסר</span>
+              {/* Magic Link & Share buttons */}
+              <div className="flex flex-wrap items-center gap-1.5 bg-white p-2 rounded-xl border border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => handleShareWhatsapp(child)}
+                  className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] rounded-lg flex items-center gap-1 shadow-xs cursor-pointer"
+                >
+                  <Share2 className="w-3.5 h-3.5" />
+                  <span>שתף ב-WhatsApp 💬</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedQrStudent(child)}
+                  className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-[11px] rounded-lg border border-indigo-200 flex items-center gap-1 cursor-pointer"
+                >
+                  <QrCode className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>קוד QR 📱</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleCopyMagicLink(child)}
+                  className="px-2 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] rounded-lg flex items-center gap-1 cursor-pointer"
+                  title="העתק קישור"
+                >
+                  {copiedStudentId === child.studentId ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>הועתק!</span>
+                    </>
                   ) : (
-                    <span className="text-slate-600 font-medium">סטטוס סנכרון ענן</span>
+                    <>
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>העתק קישור 🔗</span>
+                    </>
                   )}
-                </div>
-
-                <div className="flex items-center gap-1.5">
-                  {syncStatusMap[child.studentId] && !syncStatusMap[child.studentId].isSynced && (
-                    <button
-                      type="button"
-                      onClick={() => handleForceResync(child)}
-                      disabled={resyncingStudentId === child.studentId}
-                      className="px-2 py-1 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-lg text-[10px] flex items-center gap-1 cursor-pointer disabled:opacity-50"
-                    >
-                      {resyncingStudentId === child.studentId ? (
-                        <RefreshCw className="w-3 h-3 animate-spin" />
-                      ) : (
-                        <span>סנכרן עכשיו 🔄</span>
-                      )}
-                    </button>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={() => handleVerifySync(child)}
-                    disabled={checkingSyncStudentId === child.studentId}
-                    className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-lg text-[10px] border border-indigo-200 flex items-center gap-1 cursor-pointer disabled:opacity-50"
-                  >
-                    {checkingSyncStudentId === child.studentId ? (
-                      <RefreshCw className="w-3 h-3 animate-spin text-indigo-600" />
-                    ) : (
-                      <span>בדוק סנכרון 🔍</span>
-                    )}
-                  </button>
-                </div>
+                </button>
               </div>
 
               {/* Stats row & view button */}
@@ -566,9 +385,16 @@ export const LinkedStudentsManager: React.FC<LinkedStudentsManagerProps> = ({
       <div className="bg-slate-100/80 p-3.5 rounded-2xl text-[11px] text-slate-600 flex items-center gap-2">
         <Smartphone className="w-4 h-4 text-indigo-600 shrink-0" />
         <span>
-          <strong>כיצד הילד נכנס מהטלפון שלו?</strong> הילד פותח את האפליקציה, לוחץ על <strong>"כניסת תלמיד 👦"</strong> ומזין את קוד הכניסה שהגדרת עבורו (למשל: <strong>1234</strong>).
+          <strong>איך הילד נכנס?</strong> לחץ על <strong>"שתף ב-WhatsApp 💬"</strong> ושלח לילד קישור כניסה. הילד לוחץ על הקישור ונכנס פנימה **בלחיצה אחת** מכל טלפון או טאבלט!
         </span>
       </div>
+
+      {/* QR Code Modal */}
+      <StudentQrModal
+        isOpen={!!selectedQrStudent}
+        onClose={() => setSelectedQrStudent(null)}
+        student={selectedQrStudent}
+      />
     </div>
   );
 };
