@@ -13,6 +13,7 @@ import { FractionOrderDragExercise } from '../visuals/FractionOrderDragExercise'
 import { FractionBookComparisonCard } from '../visuals/FractionBookComparisonCard';
 import { GeoboardWholeBuilder } from '../visuals/GeoboardWholeBuilder';
 import { TopicCompletionVisualizer } from '../visuals/TopicCompletionVisualizer';
+import { TopicLevelRoadmap } from '../practice/TopicLevelRoadmap';
 import {
   HelpCircle,
   Lightbulb,
@@ -29,7 +30,8 @@ import {
   Check,
   TrendingUp,
   ChevronLeft,
-  Zap
+  Zap,
+  MapPin
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -41,7 +43,7 @@ interface StagePracticeProps {
   onBackToHome: () => void;
 }
 
-const SESSION_QUESTIONS_COUNT = 5;
+const DEFAULT_SESSION_QUESTIONS_COUNT = 8;
 
 export const StagePractice: React.FC<StagePracticeProps> = ({
   topic,
@@ -54,9 +56,10 @@ export const StagePractice: React.FC<StagePracticeProps> = ({
   const currentLevel = topicProg.currentLevel || 1;
 
   // Session state
+  const [sessionQuestionCount, setSessionQuestionCount] = useState<number>(DEFAULT_SESSION_QUESTIONS_COUNT);
   const [roundNumber, setRoundNumber] = useState<number>(1);
   const [exercises, setExercises] = useState<Exercise[]>(() =>
-    getFreshExercisesForTopic(topic.id, currentLevel, SESSION_QUESTIONS_COUNT)
+    getFreshExercisesForTopic(topic.id, currentLevel, DEFAULT_SESSION_QUESTIONS_COUNT)
   );
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [sessionResults, setSessionResults] = useState<{ exerciseId: string; isCorrect: boolean }[]>([]);
@@ -72,6 +75,27 @@ export const StagePractice: React.FC<StagePracticeProps> = ({
   const [currentHintStep, setCurrentHintStep] = useState<number>(0);
   const [showExtraExplanation, setShowExtraExplanation] = useState<boolean>(false);
   const [showExampleDemonstration, setShowExampleDemonstration] = useState<boolean>(false);
+  const [showRoadmapModal, setShowRoadmapModal] = useState<boolean>(false);
+
+  const handleSelectLevelFromRoadmap = (levelNum: 1 | 2 | 3) => {
+    const freshList = getFreshExercisesForTopic(
+      topic.id,
+      levelNum,
+      sessionQuestionCount
+    );
+    setExercises(freshList);
+    setCurrentIndex(0);
+    setSessionResults([]);
+    setIsSessionCompleted(false);
+    setSelectedOptionId(null);
+    setIsAnswered(false);
+    setIsCorrect(false);
+    setFeedbackMessage('');
+    setCurrentHintStep(0);
+    setShowExtraExplanation(false);
+    setShowExampleDemonstration(false);
+    setShowRoadmapModal(false);
+  };
 
   const mastery = getTopicMastery(topicProg);
   const currentExercise: Exercise = exercises[currentIndex] || exercises[0];
@@ -83,7 +107,7 @@ export const StagePractice: React.FC<StagePracticeProps> = ({
     const freshList = getFreshExercisesForTopic(
       topic.id,
       nextLevel,
-      SESSION_QUESTIONS_COUNT,
+      sessionQuestionCount,
       exercises.map((e) => e.id)
     );
     setExercises(freshList);
@@ -353,7 +377,7 @@ export const StagePractice: React.FC<StagePracticeProps> = ({
       {/* Top Banner with Clear Learning & Session Indicators */}
       <div className={`p-5 rounded-3xl text-white bg-gradient-to-r ${topic.bgGradient} shadow-md`}>
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="px-3 py-1 bg-white/20 rounded-full text-xs font-bold flex items-center gap-1.5">
               <Flame className="w-3.5 h-3.5 text-amber-300" />
               שלב 3: תרגול עצמאי
@@ -361,19 +385,58 @@ export const StagePractice: React.FC<StagePracticeProps> = ({
             <span className="text-xs text-white/90">
               {topic.shortTitle} • סבב {roundNumber}
             </span>
+
+            {/* Session Length Selector */}
+            <div className="flex items-center gap-1 bg-black/20 p-0.5 rounded-lg text-xs mr-2">
+              <span className="text-[10px] text-white/70 px-1 font-medium">אורך סבב:</span>
+              {[8, 10, 12].map((cnt) => (
+                <button
+                  key={cnt}
+                  type="button"
+                  onClick={() => {
+                    setSessionQuestionCount(cnt);
+                    const freshList = getFreshExercisesForTopic(topic.id, currentLevel, cnt);
+                    setExercises(freshList);
+                    setCurrentIndex(0);
+                    setSessionResults([]);
+                    setIsSessionCompleted(false);
+                  }}
+                  className={`px-2 py-0.5 rounded font-bold text-[11px] transition-all cursor-pointer ${
+                    sessionQuestionCount === cnt
+                      ? 'bg-amber-400 text-slate-950 shadow-xs'
+                      : 'text-white/80 hover:bg-white/10'
+                  }`}
+                >
+                  {cnt}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {/* Topic Mastery Badge */}
-          <div className="flex items-center gap-2 bg-black/25 px-3 py-1 rounded-full text-xs font-bold">
-            <span>מד שליטה:</span>
-            <span className="text-amber-300">{mastery.percentage}%</span>
-            <div className="flex items-center">
-              {[1, 2, 3].map((s) => (
-                <Star
-                  key={s}
-                  className={`w-3 h-3 ${s <= mastery.stars ? 'text-amber-300 fill-amber-300' : 'text-white/40'}`}
-                />
-              ))}
+          <div className="flex items-center gap-2">
+            {/* Topic Level Roadmap Button */}
+            <button
+              type="button"
+              onClick={() => setShowRoadmapModal(true)}
+              className="px-3 py-1 bg-amber-400 hover:bg-amber-300 text-slate-950 rounded-full text-xs font-black flex items-center gap-1.5 transition-all shadow-sm active:scale-95 cursor-pointer"
+              title="צפה במפת הרמות והשאלות"
+            >
+              <MapPin className="w-3.5 h-3.5" />
+              <span>מפת הרמות 🗺️</span>
+            </button>
+
+            {/* Topic Mastery Badge */}
+            <div className="flex items-center gap-2 bg-black/25 px-3 py-1 rounded-full text-xs font-bold">
+              <span>מד שליטה:</span>
+              <span className="text-amber-300">{mastery.percentage}%</span>
+              <div className="flex items-center">
+                {[1, 2, 3].map((s) => (
+                  <Star
+                    key={s}
+                    className={`w-3 h-3 ${s <= mastery.stars ? 'text-amber-300 fill-amber-300' : 'text-white/40'}`}
+                  />
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -754,6 +817,25 @@ export const StagePractice: React.FC<StagePracticeProps> = ({
           כל הכבוד על התרגול! את/ה בדרך להצלחה בשברים 🌟
         </div>
       </div>
+
+      {/* Roadmap Modal Overlay */}
+      {showRoadmapModal && (
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowRoadmapModal(false);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto cursor-pointer"
+        >
+          <div className="w-full my-auto py-6 cursor-default">
+            <TopicLevelRoadmap
+              topic={topic}
+              progress={progress}
+              onSelectLevel={handleSelectLevelFromRoadmap}
+              onClose={() => setShowRoadmapModal(false)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

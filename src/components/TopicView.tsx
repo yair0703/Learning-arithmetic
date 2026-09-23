@@ -5,8 +5,9 @@ import { StageUnderstand } from './stages/StageUnderstand';
 import { StageTogether } from './stages/StageTogether';
 import { StagePractice } from './stages/StagePractice';
 import { TopicCompletionVisualizer } from './visuals/TopicCompletionVisualizer';
+import { TopicLevelRoadmap } from './practice/TopicLevelRoadmap';
 import { markStageCompleted, getTopicMastery } from '../utils/storage';
-import { ArrowRight, BookOpen, Users, Award, Sparkles, Star, TrendingUp, Eye, X } from 'lucide-react';
+import { ArrowRight, BookOpen, Users, Award, Sparkles, Star, TrendingUp, Eye, X, MapPin } from 'lucide-react';
 
 interface TopicViewProps {
   topicId: TopicId;
@@ -27,6 +28,7 @@ export const TopicView: React.FC<TopicViewProps> = ({
 }) => {
   const [currentStage, setCurrentStage] = useState<TopicStage>(initialStage);
   const [showVisualizerModal, setShowVisualizerModal] = useState<boolean>(false);
+  const [showRoadmapModal, setShowRoadmapModal] = useState<boolean>(false);
 
   const topic = TOPICS.find((t) => t.id === topicId) || TOPICS[0];
   const content = TOPIC_LEARNING_CONTENTS[topicId] || TOPIC_LEARNING_CONTENTS['whole-part'];
@@ -102,6 +104,16 @@ export const TopicView: React.FC<TopicViewProps> = ({
 
         {/* Topic Mastery, Visualizer and Sandbox Launcher */}
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowRoadmapModal(true)}
+            className="flex items-center gap-1.5 text-xs font-bold text-slate-900 bg-amber-400 hover:bg-amber-300 px-3 py-1.5 rounded-xl transition-all shadow-xs cursor-pointer active:scale-95 shrink-0"
+            title="צפה במפת השאלות והרמות של הפרק"
+          >
+            <MapPin className="w-3.5 h-3.5" />
+            <span>מפת הרמות 🗺️</span>
+          </button>
+
           <button
             type="button"
             onClick={() => setShowVisualizerModal(true)}
@@ -183,6 +195,28 @@ export const TopicView: React.FC<TopicViewProps> = ({
                 setShowVisualizerModal(false);
                 onOpenSandbox();
               }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Dynamic Level Roadmap Modal */}
+      {showRoadmapModal && (
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowRoadmapModal(false);
+          }}
+          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto cursor-pointer"
+        >
+          <div className="relative w-full max-w-4xl my-auto py-6 cursor-default">
+            <TopicLevelRoadmap
+              topic={topic}
+              progress={progress}
+              onSelectLevel={() => {
+                setShowRoadmapModal(false);
+                setCurrentStage('practice');
+              }}
+              onClose={() => setShowRoadmapModal(false)}
             />
           </div>
         </div>

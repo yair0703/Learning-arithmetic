@@ -121,20 +121,20 @@ export function getTopicCumulativeProgressStatus(
   };
 
   const levelsProgress: LevelCumulativeProgress[] = ([1, 2, 3] as const).map((lvl) => {
-    const isUnlocked = lvl === 1 || currentLvl >= lvl || (lvl === 2 && totalCorrect >= 3);
+    const isUnlocked = lvl === 1 || currentLvl >= lvl || (lvl === 2 && totalCorrect >= 5);
     const isCurrentLevel = currentLvl === lvl;
-    const isCompleted = currentLvl > lvl || (currentLvl === 3 && lvl === 3 && totalCorrect >= 6);
+    const isCompleted = currentLvl > lvl || (currentLvl === 3 && lvl === 3 && totalCorrect >= 15);
 
     let lvlSolved = 0;
     let lvlCorrect = 0;
 
     if (totalSolved > 0) {
       if (currentLvl === lvl) {
-        lvlSolved = Math.max(1, totalSolved - (lvl - 1) * 3);
-        lvlCorrect = Math.max(0, totalCorrect - (lvl - 1) * 2);
+        lvlSolved = Math.max(1, totalSolved - (lvl - 1) * 5);
+        lvlCorrect = Math.max(0, totalCorrect - (lvl - 1) * 5);
       } else if (currentLvl > lvl) {
-        lvlSolved = 3;
-        lvlCorrect = 3;
+        lvlSolved = 5;
+        lvlCorrect = 5;
       } else {
         lvlSolved = 0;
         lvlCorrect = 0;
@@ -142,7 +142,7 @@ export function getTopicCumulativeProgressStatus(
     }
 
     const accuracyRate = lvlSolved > 0 ? Math.round((lvlCorrect / lvlSolved) * 100) : 0;
-    const requiredCorrectToPass = lvl === 3 ? 5 : 3;
+    const requiredCorrectToPass = 5;
 
     let statusHebrew = 'נעולה 🔒';
     let badgeClass = 'bg-slate-100 text-slate-500 border-slate-200';
