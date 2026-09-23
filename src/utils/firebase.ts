@@ -587,8 +587,6 @@ export async function createLinkedChildProfile(
   parentId: string,
   studentName: string
 ): Promise<{ success: boolean; student?: LinkedStudentProfile; error?: string }> {
-  const db = getFirebaseDb();
-
   try {
     const cleanName = studentName.trim();
     if (!cleanName) return { success: false, error: 'אנא הזן שם תלמיד/ה' };
@@ -610,32 +608,40 @@ export async function createLinkedChildProfile(
 
     const initialProgress = getInitialProgress();
 
-    // Cache locally immediately
+    // 1. Cache locally immediately so student appears in UI instantly (< 5ms)
     const existingCached = getCachedChildrenForParent(parentId);
-    saveCachedChildrenForParent(parentId, [newStudentProfile, ...existingCached.filter((c) => c.studentId !== studentDocId)]);
+    saveCachedChildrenForParent(parentId, [
+      newStudentProfile,
+      ...existingCached.filter((c) => c.studentId !== studentDocId)
+    ]);
     saveCachedStudentProfileLocally(newStudentProfile, initialProgress);
 
+    // 2. Sync to Firestore in the background
+    const db = getFirebaseDb();
     if (db) {
-      const payload = {
-        ...initialProgress,
-        studentId: studentDocId,
-        studentName: cleanName,
-        magicToken,
-        parentId,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
+      ensureAuthSession()
+        .then(() => {
+          const payload = {
+            ...initialProgress,
+            studentId: studentDocId,
+            studentName: cleanName,
+            magicToken,
+            parentId,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          };
 
-      const studentDocRef = doc(db, 'students', studentDocId);
-      const tokenAliasDocRef = doc(db, 'students', `token_${magicToken}`);
+          const studentDocRef = doc(db, 'students', studentDocId);
+          const tokenAliasDocRef = doc(db, 'students', `token_${magicToken}`);
 
-      const writePromise = Promise.all([
-        setDoc(studentDocRef, payload, { merge: true }),
-        setDoc(tokenAliasDocRef, payload, { merge: true })
-      ]);
-
-      const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 8000));
-      await Promise.race([writePromise, timeoutPromise]);
+          return Promise.all([
+            setDoc(studentDocRef, payload, { merge: true }),
+            setDoc(tokenAliasDocRef, payload, { merge: true })
+          ]);
+        })
+        .catch((cloudErr) => {
+          console.warn('Background cloud save note:', cloudErr);
+        });
     }
 
     return { success: true, student: newStudentProfile };
