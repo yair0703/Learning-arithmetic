@@ -310,7 +310,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <div className="text-[11px] text-indigo-700 truncate font-medium">
                     {currentSavedProfile.role === 'parent'
                       ? (currentSavedProfile.email || 'חשבון הורה מחובר')
-                      : `קוד תלמיד פעיל: ${currentSavedProfile.studentCode || ''}`}
+                      : 'פרופיל תלמיד/ה פעיל'}
                   </div>
                 </div>
               </div>

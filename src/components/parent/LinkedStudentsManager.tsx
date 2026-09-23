@@ -394,6 +394,8 @@ export const LinkedStudentsManager: React.FC<LinkedStudentsManagerProps> = ({
         isOpen={!!selectedQrStudent}
         onClose={() => setSelectedQrStudent(null)}
         student={selectedQrStudent}
+        allStudents={children}
+        onSelectStudent={(st) => setSelectedQrStudent(st)}
       />
     </div>
   );
