@@ -597,12 +597,17 @@ export async function createLinkedChildProfile(
     const initialProgress = getInitialProgress();
 
     // 1. Cache locally immediately so student appears in UI instantly (< 5ms)
-    const existingCached = getCachedChildrenForParent(effectiveParentId);
-    saveCachedChildrenForParent(effectiveParentId, [
-      newStudentProfile,
-      ...existingCached.filter((c) => c.studentId !== studentDocId)
-    ]);
-    saveCachedStudentProfileLocally(newStudentProfile, initialProgress);
+    try {
+      const existingCached = getCachedChildrenForParent(effectiveParentId);
+      const safeExisting = Array.isArray(existingCached) ? existingCached : [];
+      saveCachedChildrenForParent(effectiveParentId, [
+        newStudentProfile,
+        ...safeExisting.filter((c) => c && c.studentId !== studentDocId)
+      ]);
+      saveCachedStudentProfileLocally(newStudentProfile, initialProgress);
+    } catch (cacheErr) {
+      console.warn('Local cache warning in createLinkedChildProfile:', cacheErr);
+    }
 
     // 2. Sync to Firestore in the background
     const db = getFirebaseDb();

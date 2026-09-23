@@ -94,7 +94,7 @@ export const LinkedStudentsManager: React.FC<LinkedStudentsManagerProps> = ({
         setSuccessMsg(`התלמיד/ה "${res.student.studentName}" נוצר/ה בהצלחה! לחץ על "שתף ב-WhatsApp" או "קוד QR" כדי לחבר אותם.`);
         setNewStudentName('');
         setIsAddingOpen(false);
-        setChildren((prev) => [res.student!, ...prev.filter((c) => c.studentId !== res.student!.studentId)]);
+        setChildren((prev) => [res.student!, ...(prev || []).filter((c) => c && c.studentId !== res.student!.studentId)]);
         // Open QR modal automatically for instant share
         setSelectedQrStudent(res.student);
       } else {

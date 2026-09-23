@@ -27,21 +27,27 @@ export const StudentQrModal: React.FC<StudentQrModalProps> = ({
   const magicUrl = getMagicLinkUrl(student);
 
   useEffect(() => {
-    if (canvasRef.current && magicUrl && student) {
-      try {
-        QRCode.toCanvas(canvasRef.current, magicUrl, {
-          width: 240,
-          margin: 2,
-          color: {
-            dark: '#1E1B4B',
-            light: '#FFFFFF'
-          }
-        }).catch((err) => console.error('Error rendering QR code:', err));
-      } catch (err) {
-        console.error('QR rendering exception:', err);
+    if (!isOpen || !student || !magicUrl) return;
+
+    const timer = setTimeout(() => {
+      if (canvasRef.current) {
+        try {
+          QRCode.toCanvas(canvasRef.current, magicUrl, {
+            width: 240,
+            margin: 2,
+            color: {
+              dark: '#1E1B4B',
+              light: '#FFFFFF'
+            }
+          }).catch((err) => console.error('Error rendering QR code:', err));
+        } catch (err) {
+          console.error('QR rendering exception:', err);
+        }
       }
-    }
-  }, [magicUrl, student?.studentId]);
+    }, 50);
+
+    return () => clearTimeout(timer);
+  }, [magicUrl, student?.studentId, isOpen]);
 
   const handleCopy = async () => {
     try {
