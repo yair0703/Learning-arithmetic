@@ -21,6 +21,7 @@ import {
 import { LinkedStudentProfile, StudentProgress, UserProfile } from '../../types';
 import {
   getLinkedChildrenForParent,
+  getCachedChildrenForParent,
   createLinkedChildProfile,
   updateLinkedChildCode,
   deleteLinkedChild,
@@ -60,10 +61,24 @@ export const LinkedStudentsManager: React.FC<LinkedStudentsManagerProps> = ({
       setLoading(false);
       return;
     }
-    setLoading(true);
-    const list = await getLinkedChildrenForParent(parentProfile.uid);
-    setChildren(list);
-    setLoading(false);
+    
+    // Load local cached list immediately to eliminate waiting UI
+    const localCached = getCachedChildrenForParent(parentProfile.uid);
+    if (localCached.length > 0) {
+      setChildren(localCached);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+
+    try {
+      const list = await getLinkedChildrenForParent(parentProfile.uid);
+      setChildren(list);
+    } catch (err) {
+      console.warn('Error fetching linked children:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -89,22 +104,28 @@ export const LinkedStudentsManager: React.FC<LinkedStudentsManagerProps> = ({
     setErrorMsg(null);
     setSuccessMsg(null);
 
-    const res = await createLinkedChildProfile(
-      parentProfile.uid,
-      newStudentName.trim(),
-      newExactCode.trim()
-    );
+    try {
+      const res = await createLinkedChildProfile(
+        parentProfile.uid,
+        newStudentName.trim(),
+        newExactCode.trim()
+      );
 
-    if (res.success && res.student) {
-      setSuccessMsg(`התלמיד "${res.student.studentName}" נוצר בהצלחה עם קוד כניסה מדויק: ${res.student.studentCode}`);
-      setNewStudentName('');
-      setNewExactCode('');
-      setIsAddingOpen(false);
-      await fetchChildren();
-    } else {
-      setErrorMsg(res.error || 'שגיאה ביצירת פרופיל התלמיד');
+      if (res.success && res.student) {
+        setSuccessMsg(`התלמיד "${res.student.studentName}" נוצר בהצלחה עם קוד כניסה מדויק: ${res.student.studentCode}`);
+        setNewStudentName('');
+        setNewExactCode('');
+        setIsAddingOpen(false);
+        setChildren((prev) => [res.student!, ...prev.filter((c) => c.studentId !== res.student!.studentId)]);
+      } else {
+        setErrorMsg(res.error || 'שגיאה ביצירת פרופיל התלמיד');
+      }
+    } catch (err) {
+      setErrorMsg('שגיאה בלתי צפויה ביצירת התלמיד');
+      console.error(err);
+    } finally {
+      setCreating(false);
     }
-    setCreating(false);
   };
 
   const handleStartEditCode = (child: LinkedStudentProfile) => {
@@ -114,32 +135,56 @@ export const LinkedStudentsManager: React.FC<LinkedStudentsManagerProps> = ({
 
   const handleSaveEditCode = async (studentId: string) => {
     if (!editCodeValue.trim()) return;
+    const cleanNewCode = editCodeValue.trim().toUpperCase();
     setUpdatingCode(true);
     setErrorMsg(null);
-    const res = await updateLinkedChildCode(studentId, editCodeValue.trim());
-    if (res.success) {
-      setSuccessMsg(`קוד הכניסה עודכן בהצלחה ל: ${editCodeValue.trim().toUpperCase()}`);
-      setEditingStudentId(null);
-      await fetchChildren();
-    } else {
-      setErrorMsg(res.error || 'שגיאה בעדכון הקוד');
+
+    // Optimistically update code in state
+    setChildren((prev) =>
+      prev.map((c) => (c.studentId === studentId ? { ...c, studentCode: cleanNewCode } : c))
+    );
+
+    try {
+      const res = await updateLinkedChildCode(studentId, cleanNewCode);
+      if (res.success) {
+        setSuccessMsg(`קוד הכניסה עודכן בהצלחה ל: ${cleanNewCode}`);
+        setEditingStudentId(null);
+      } else {
+        setErrorMsg(res.error || 'שגיאה בעדכון הקוד');
+        fetchChildren(); // Revert on failure
+      }
+    } catch {
+      setErrorMsg('שגיאה בעדכון הקוד');
+      fetchChildren();
+    } finally {
+      setUpdatingCode(false);
     }
-    setUpdatingCode(false);
   };
 
   const handleDeleteChild = async (child: LinkedStudentProfile) => {
     if (!window.confirm(`האם למחוק את התלמיד/ה "${child.studentName}" (קוד: ${child.studentCode})?`)) {
       return;
     }
-    setLoading(true);
-    const res = await deleteLinkedChild(child.studentId, parentProfile.uid, child.studentCode);
-    if (res.success) {
-      setSuccessMsg(`התלמיד "${child.studentName}" הוסר בהצלחה`);
-      await fetchChildren();
-    } else {
-      setErrorMsg(res.error || 'שגיאה במחיקת התלמיד');
+
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    // 1. Optimistically remove from state instantly for zero-wait UX
+    setChildren((prev) => prev.filter((c) => c.studentId !== child.studentId));
+    setSuccessMsg(`התלמיד "${child.studentName}" הוסר בהצלחה`);
+
+    // 2. Perform background deletion from Firestore & local storage
+    try {
+      const res = await deleteLinkedChild(child.studentId, parentProfile.uid, child.studentCode);
+      if (!res.success) {
+        setErrorMsg(res.error || 'שגיאה במחיקת התלמיד משרת הענן');
+        fetchChildren(); // Revert if delete failed
+      }
+    } catch (err) {
+      setErrorMsg('שגיאה במחיקת התלמיד');
+      console.error(err);
+      fetchChildren();
     }
-    setLoading(false);
   };
 
   const handleCopyCode = async (code: string) => {
@@ -155,16 +200,21 @@ export const LinkedStudentsManager: React.FC<LinkedStudentsManagerProps> = ({
 
   const handleViewChildReport = async (child: LinkedStudentProfile) => {
     setLoading(true);
-    const res = await loadStudentProgressFromCloud(child.studentId);
-    if (res.success && res.data) {
-      setStudentCloudId(child.studentId);
-      saveStudentProgress(res.data);
-      onSelectStudentProgress(res.data, child.studentName);
-      setSuccessMsg(`כעת מוצג הדוח הפדגוגי של: ${child.studentName}`);
-    } else {
-      setErrorMsg('לא ניתן היה לטעון את נתוני התלמיד מהענן');
+    try {
+      const res = await loadStudentProgressFromCloud(child.studentId);
+      if (res.success && res.data) {
+        setStudentCloudId(child.studentId);
+        saveStudentProgress(res.data);
+        onSelectStudentProgress(res.data, child.studentName);
+        setSuccessMsg(`כעת מוצג הדוח הפדגוגי של: ${child.studentName}`);
+      } else {
+        setErrorMsg('לא ניתן היה לטעון את נתוני התלמיד מהענן');
+      }
+    } catch {
+      setErrorMsg('שגיאה בטעינת נתוני התלמיד');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (

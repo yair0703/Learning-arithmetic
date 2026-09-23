@@ -82,27 +82,32 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setStudentLoading(true);
     setStudentError(null);
 
-    const cleanCode = studentCodeInput.trim().toUpperCase();
-    const res = await findStudentByLoginCode(cleanCode);
+    try {
+      const cleanCode = studentCodeInput.trim().toUpperCase();
+      const res = await findStudentByLoginCode(cleanCode);
 
-    if (res.success && res.progress && res.studentId) {
-      setStudentCloudId(res.studentId);
-      saveStudentProgress(res.progress);
+      if (res.success && res.progress && res.studentId) {
+        setStudentCloudId(res.studentId);
+        saveStudentProgress(res.progress);
 
-      const profile: UserProfile = {
-        role: 'student',
-        displayName: res.studentName || 'תלמיד/ה',
-        studentCode: cleanCode,
-        uid: res.studentId
-      };
+        const profile: UserProfile = {
+          role: 'student',
+          displayName: res.studentName || 'תלמיד/ה',
+          studentCode: cleanCode,
+          uid: res.studentId
+        };
 
-      saveUserProfileToStorage(profile);
-      onLoginSuccess(profile, res.progress);
-      onClose();
-    } else {
-      setStudentError(res.error || 'קוד התלמיד לא נמצא. בדוק/י עם ההורה ונסה שוב.');
+        saveUserProfileToStorage(profile);
+        onLoginSuccess(profile, res.progress);
+        onClose();
+      } else {
+        setStudentError(res.error || 'קוד התלמיד לא נמצא. בדוק/י עם ההורה ונסה שוב.');
+      }
+    } catch {
+      setStudentError('שגיאה בחיבור למערכת. אנא בדוק את החיבור לרשת ונסה שוב.');
+    } finally {
+      setStudentLoading(false);
     }
-    setStudentLoading(false);
   };
 
   // 2. Handle Guest / Offline Continue
@@ -121,21 +126,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setParentLoading(true);
     setParentError(null);
 
-    const res = await loginParentWithGoogle();
-    if (res.success && res.user) {
-      const profile: UserProfile = {
-        role: 'parent',
-        uid: res.user.uid,
-        displayName: res.user.displayName || 'הורה',
-        email: res.user.email || undefined
-      };
-      saveUserProfileToStorage(profile);
-      onLoginSuccess(profile);
-      onClose();
-    } else {
-      setParentError(res.error || 'שגיאה בהתחברות עם Google');
+    try {
+      const res = await loginParentWithGoogle();
+      if (res.success && res.user) {
+        const profile: UserProfile = {
+          role: 'parent',
+          uid: res.user.uid,
+          displayName: res.user.displayName || 'הורה',
+          email: res.user.email || undefined
+        };
+        saveUserProfileToStorage(profile);
+        onLoginSuccess(profile);
+        onClose();
+      } else {
+        setParentError(res.error || 'שגיאה בהתחברות עם Google');
+      }
+    } catch {
+      setParentError('שגיאה בהתחברות עם Google');
+    } finally {
+      setParentLoading(false);
     }
-    setParentLoading(false);
   };
 
   // 4. Handle Parent Email/Password Login & Register
@@ -149,38 +159,43 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setParentLoading(true);
     setParentError(null);
 
-    if (isRegisterMode) {
-      const res = await registerParentWithEmail(parentEmail, parentPassword, parentName || 'הורה');
-      if (res.success && res.user) {
-        const profile: UserProfile = {
-          role: 'parent',
-          uid: res.user.uid,
-          displayName: parentName || res.user.displayName || 'הורה',
-          email: res.user.email || undefined
-        };
-        saveUserProfileToStorage(profile);
-        onLoginSuccess(profile);
-        onClose();
+    try {
+      if (isRegisterMode) {
+        const res = await registerParentWithEmail(parentEmail, parentPassword, parentName || 'הורה');
+        if (res.success && res.user) {
+          const profile: UserProfile = {
+            role: 'parent',
+            uid: res.user.uid,
+            displayName: parentName || res.user.displayName || 'הורה',
+            email: res.user.email || undefined
+          };
+          saveUserProfileToStorage(profile);
+          onLoginSuccess(profile);
+          onClose();
+        } else {
+          setParentError(res.error || 'שגיאה ברישום החשבון');
+        }
       } else {
-        setParentError(res.error || 'שגיאה ברישום החשבון');
+        const res = await loginParentWithEmail(parentEmail, parentPassword);
+        if (res.success && res.user) {
+          const profile: UserProfile = {
+            role: 'parent',
+            uid: res.user.uid,
+            displayName: res.user.displayName || 'הורה',
+            email: res.user.email || undefined
+          };
+          saveUserProfileToStorage(profile);
+          onLoginSuccess(profile);
+          onClose();
+        } else {
+          setParentError(res.error || 'שגיאה בהתחברות');
+        }
       }
-    } else {
-      const res = await loginParentWithEmail(parentEmail, parentPassword);
-      if (res.success && res.user) {
-        const profile: UserProfile = {
-          role: 'parent',
-          uid: res.user.uid,
-          displayName: res.user.displayName || 'הורה',
-          email: res.user.email || undefined
-        };
-        saveUserProfileToStorage(profile);
-        onLoginSuccess(profile);
-        onClose();
-      } else {
-        setParentError(res.error || 'שגיאה בהתחברות');
-      }
+    } catch {
+      setParentError('שגיאה בתהליך ההתחברות');
+    } finally {
+      setParentLoading(false);
     }
-    setParentLoading(false);
   };
 
   return (
