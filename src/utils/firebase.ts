@@ -28,7 +28,7 @@ import {
   User
 } from 'firebase/auth';
 import { StudentProgress, UserProfile, LinkedStudentProfile } from '../types';
-import { getInitialProgress } from './storage';
+import { getInitialProgress, loadStudentProgress } from './storage';
 import firebaseConfigJson from '../../firebase-applet-config.json';
 
 const CLOUD_STUDENT_ID_KEY = 'maslulim_cloud_student_id_v1';
@@ -158,13 +158,28 @@ export function getStudentCloudId(): string {
     if (userProfile.role === 'student' && userProfile.uid) {
       return userProfile.uid;
     }
-    let id = localStorage.getItem(CLOUD_STUDENT_ID_KEY);
-    if (!id || id.trim().length === 0) {
-      const randomNum = Math.floor(1000 + Math.random() * 9000);
-      id = `MASLUL-${randomNum}`;
-      localStorage.setItem(CLOUD_STUDENT_ID_KEY, id);
+    const explicitId = localStorage.getItem(CLOUD_STUDENT_ID_KEY);
+    if (explicitId && explicitId.trim().length > 0) {
+      return explicitId.trim();
     }
-    return id;
+    // Check if there are linked children on this device
+    const localParentChildren = getCachedChildrenForParent('parent_local');
+    if (localParentChildren.length > 0 && localParentChildren[0]?.studentId) {
+      const firstChildId = localParentChildren[0].studentId;
+      localStorage.setItem(CLOUD_STUDENT_ID_KEY, firstChildId);
+      return firstChildId;
+    }
+    const allKnown = getAllCachedStudentsOnDevice();
+    if (allKnown.length > 0 && allKnown[0]?.studentId) {
+      const firstStudentId = allKnown[0].studentId;
+      localStorage.setItem(CLOUD_STUDENT_ID_KEY, firstStudentId);
+      return firstStudentId;
+    }
+
+    const randomNum = Math.floor(1000 + Math.random() * 9000);
+    const newId = `MASLUL-${randomNum}`;
+    localStorage.setItem(CLOUD_STUDENT_ID_KEY, newId);
+    return newId;
   } catch {
     return DEFAULT_DOC_ID;
   }
@@ -222,14 +237,20 @@ export async function saveStudentProgressToCloud(
       updatedAt: new Date().toISOString()
     };
 
-    if (extraMetadata?.parentId) payload.parentId = extraMetadata.parentId;
-    if (extraMetadata?.studentName) payload.studentName = extraMetadata.studentName;
-    if (extraMetadata?.studentCode) payload.studentCode = extraMetadata.studentCode;
+    const cachedStudent = getCachedStudentProfileLocally(cloudId);
+    const targetParentId = extraMetadata?.parentId || cachedStudent?.parentId;
+
+    if (targetParentId) payload.parentId = targetParentId;
+    if (extraMetadata?.studentName || cachedStudent?.studentName) {
+      payload.studentName = extraMetadata?.studentName || cachedStudent?.studentName;
+    }
+    if (extraMetadata?.studentCode || cachedStudent?.studentCode) {
+      payload.studentCode = extraMetadata?.studentCode || cachedStudent?.studentCode;
+    }
 
     await setDoc(docRef, payload, { merge: true });
 
     // Also update local cache for fast offline lookup
-    const cachedStudent = getCachedStudentProfileLocally(cloudId);
     if (cachedStudent) {
       if (cachedStudent.magicToken) {
         const tokenAliasRef = doc(db, 'students', `token_${cachedStudent.magicToken}`);
@@ -246,6 +267,30 @@ export async function saveStudentProgressToCloud(
         progress
       );
     }
+
+    // Update parent's linked children list cache immediately
+    const parentIdsToUpdate = new Set<string>();
+    if (targetParentId) parentIdsToUpdate.add(targetParentId);
+    parentIdsToUpdate.add('parent_local');
+
+    parentIdsToUpdate.forEach((pId) => {
+      const parentChildren = getCachedChildrenForParent(pId);
+      if (parentChildren.length > 0) {
+        const updatedList = parentChildren.map((c) => {
+          if (c.studentId === cloudId || (cachedStudent && c.studentId === cachedStudent.studentId)) {
+            return {
+              ...c,
+              totalSolved: payload.totalSolved,
+              totalCorrect: payload.totalCorrect,
+              accuracyRate: payload.totalSolved > 0 ? Math.round((payload.totalCorrect / payload.totalSolved) * 100) : 0,
+              lastActiveDate: payload.lastActiveDate
+            };
+          }
+          return c;
+        });
+        saveCachedChildrenForParent(pId, updatedList);
+      }
+    });
 
     return {
       success: true,
@@ -752,6 +797,11 @@ export async function createLinkedChildProfile(
     const studentDocId = `student_${effectiveParentId}_${Date.now()}`;
     const magicToken = `st_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
+    const existingLocalProgress = loadStudentProgress();
+    const startingProgress = (existingLocalProgress && existingLocalProgress.totalSolved > 0)
+      ? existingLocalProgress
+      : getInitialProgress();
+
     const newStudentProfile: LinkedStudentProfile = {
       studentId: studentDocId,
       studentName: cleanName,
@@ -759,12 +809,14 @@ export async function createLinkedChildProfile(
       parentId: effectiveParentId,
       createdAt: new Date().toISOString(),
       lastActiveDate: new Date().toISOString().slice(0, 10),
-      totalSolved: 0,
-      totalCorrect: 0,
-      accuracyRate: 0
+      totalSolved: startingProgress.totalSolved || 0,
+      totalCorrect: startingProgress.totalCorrect || 0,
+      accuracyRate: startingProgress.totalSolved > 0
+        ? Math.round(((startingProgress.totalCorrect || 0) / startingProgress.totalSolved) * 100)
+        : 0
     };
 
-    const initialProgress = getInitialProgress();
+    setStudentCloudId(studentDocId);
 
     // 1. Cache locally immediately so student appears in UI instantly (< 5ms)
     try {
@@ -774,7 +826,7 @@ export async function createLinkedChildProfile(
         newStudentProfile,
         ...safeExisting.filter((c) => c && c.studentId !== studentDocId)
       ]);
-      saveCachedStudentProfileLocally(newStudentProfile, initialProgress);
+      saveCachedStudentProfileLocally(newStudentProfile, startingProgress);
     } catch (cacheErr) {
       console.warn('Local cache warning in createLinkedChildProfile:', cacheErr);
     }
@@ -785,7 +837,7 @@ export async function createLinkedChildProfile(
       ensureAuthSession()
         .then(() => {
           const payload = {
-            ...initialProgress,
+            ...startingProgress,
             studentId: studentDocId,
             studentName: cleanName,
             magicToken,

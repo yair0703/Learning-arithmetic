@@ -1,8 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { StudentProgress, ParentDiagnosticInsight } from '../../types';
+import React, { useState, useEffect, useCallback } from 'react';
+import { StudentProgress, ParentDiagnosticInsight, LinkedStudentProfile } from '../../types';
 import { TOPICS } from '../../data/curriculumData';
 import { generateParentDiagnosticReport, seedDemoProgress, getInitialProgress, saveStudentProgress, resetParentPinToDefault } from '../../utils/storage';
-import { loadStudentProgressFromCloud, subscribeToStudentProgress } from '../../utils/firebase';
+import {
+  loadStudentProgressFromCloud,
+  subscribeToStudentProgress,
+  getCachedChildrenForParent,
+  getAllCachedStudentsOnDevice,
+  getCachedStudentProgressLocally
+} from '../../utils/firebase';
 import { WeeklyProgressChart } from './WeeklyProgressChart';
 import { ParentPinLock } from './ParentPinLock';
 import { ChangePinModal } from './ChangePinModal';
@@ -26,7 +32,8 @@ import {
   Lock,
   KeyRound,
   UserCheck,
-  RefreshCw
+  RefreshCw,
+  User
 } from 'lucide-react';
 
 interface ParentDashboardProps {
@@ -48,10 +55,37 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
   const [isChangePinOpen, setIsChangePinOpen] = useState<boolean>(false);
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
   const [selectedChildName, setSelectedChildName] = useState<string | null>(null);
+  const [availableChildren, setAvailableChildren] = useState<LinkedStudentProfile[]>([]);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [report, setReport] = useState<ParentDiagnosticInsight>(() =>
     generateParentDiagnosticReport(progress)
   );
+
+  const parentUid = userProfile?.role === 'parent' && userProfile.uid ? userProfile.uid : 'parent_local';
+
+  // Load available linked children on mount
+  useEffect(() => {
+    const cached = getCachedChildrenForParent(parentUid);
+    const allKnown = getAllCachedStudentsOnDevice();
+    const combined = [...cached];
+    allKnown.forEach((st) => {
+      if (!combined.some((c) => c.studentId === st.studentId)) {
+        combined.push(st);
+      }
+    });
+    setAvailableChildren(combined);
+
+    if (!selectedChildId && combined.length > 0) {
+      const first = combined[0];
+      setSelectedChildId(first.studentId);
+      setSelectedChildName(first.studentName || 'תלמיד/ה');
+      const cachedProg = getCachedStudentProgressLocally(first.studentId);
+      if (cachedProg && (cachedProg.totalSolved || 0) > (progress.totalSolved || 0)) {
+        onProgressUpdate(cachedProg);
+        setReport(generateParentDiagnosticReport(cachedProg));
+      }
+    }
+  }, [parentUid, selectedChildId, progress.totalSolved, onProgressUpdate]);
 
   // Sync report whenever progress updates
   useEffect(() => {
@@ -62,7 +96,8 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
   useEffect(() => {
     if (!selectedChildId) return;
 
-    const unsubscribe = subscribeToStudentProgress(selectedChildId, (cloudProgress) => {
+    const unsubscribe = subscribeToStudentProgress(selectedChildId, (cloudProgress, name) => {
+      if (name && !selectedChildName) setSelectedChildName(name);
       onProgressUpdate(cloudProgress);
       setReport(generateParentDiagnosticReport(cloudProgress));
     });
@@ -70,7 +105,31 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
     return () => {
       unsubscribe();
     };
-  }, [selectedChildId, onProgressUpdate]);
+  }, [selectedChildId, selectedChildName, onProgressUpdate]);
+
+  const handleSelectChild = async (childId: string, childName?: string) => {
+    setSelectedChildId(childId);
+    if (childName) setSelectedChildName(childName);
+
+    // 1. Check local cache first for instant UI response (< 5ms)
+    const cachedProg = getCachedStudentProgressLocally(childId);
+    if (cachedProg) {
+      onProgressUpdate(cachedProg);
+      setReport(generateParentDiagnosticReport(cachedProg));
+    }
+
+    // 2. Fetch fresh cloud progress
+    try {
+      const cloudRes = await loadStudentProgressFromCloud(childId);
+      if (cloudRes.success && cloudRes.data) {
+        saveStudentProgress(cloudRes.data);
+        onProgressUpdate(cloudRes.data);
+        setReport(generateParentDiagnosticReport(cloudRes.data));
+      }
+    } catch (e) {
+      console.warn('Error loading progress for selected child:', e);
+    }
+  };
 
   const handleManualRefresh = async () => {
     setIsRefreshing(true);
@@ -89,6 +148,11 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
           onProgressUpdate(cloudRes.data);
           setReport(generateParentDiagnosticReport(cloudRes.data));
         }
+      }
+      // Also refresh cached children list
+      const freshChildren = getCachedChildrenForParent(parentUid);
+      if (freshChildren.length > 0) {
+        setAvailableChildren(freshChildren);
       }
     } catch (e) {
       console.warn('Manual refresh in ParentDashboard:', e);
@@ -194,6 +258,45 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Student Quick Selector Bar */}
+      {availableChildren.length > 0 && (
+        <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
+            <User className="w-4 h-4 text-indigo-600 shrink-0" />
+            <span>בחר תלמיד/ה להצגת דוח מלא:</span>
+          </div>
+          <div className="flex items-center gap-1.5 flex-wrap w-full sm:w-auto">
+            {availableChildren.map((child) => {
+              const isSelected = selectedChildId === child.studentId;
+              return (
+                <button
+                  key={child.studentId}
+                  type="button"
+                  onClick={() => handleSelectChild(child.studentId, child.studentName)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                    isSelected
+                      ? 'bg-indigo-600 text-white shadow-xs'
+                      : 'bg-slate-100 hover:bg-indigo-50 text-slate-700 border border-slate-200'
+                  }`}
+                >
+                  <span>{child.studentName || 'תלמיד/ה'}</span>
+                  {child.totalSolved !== undefined && (
+                    <span
+                      className={`text-[10px] px-1.5 py-0.2 rounded-md font-mono ${
+                        isSelected ? 'bg-indigo-700/80 text-white' : 'bg-slate-200 text-slate-600'
+                      }`}
+                    >
+                      {child.totalSolved} תרגילים
+                    </span>
+                  )}
+                  {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Key Metrics Overview */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
