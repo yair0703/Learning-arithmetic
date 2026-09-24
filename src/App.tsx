@@ -72,6 +72,15 @@ export default function App() {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  const isStudent = userProfile.role === 'student' && Boolean(userProfile.displayName);
+
+  // Prevent student from staying on non-learning views if active
+  useEffect(() => {
+    if (isStudent && (activeView === 'parent' || activeView === 'reinforcement')) {
+      setActiveView('home');
+    }
+  }, [isStudent, activeView]);
+
   const addToast = useCallback((toast: Omit<ToastMessage, 'id'>) => {
     const id = `toast-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
     setToasts((prev) => [...prev, { ...toast, id }]);
@@ -407,7 +416,7 @@ export default function App() {
             <button
               type="button"
               onClick={handleStartDailyPractice}
-              className={`hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
+              className={`hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
                 activeView === 'daily'
                   ? 'bg-emerald-600 text-white shadow-xs'
                   : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200'
@@ -417,34 +426,39 @@ export default function App() {
               <span>תרגול יומי</span>
             </button>
 
-            {/* Reinforcement topics shortcut (Desktop only) */}
-            <button
-              type="button"
-              onClick={() => setActiveView('reinforcement')}
-              className={`hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
-                activeView === 'reinforcement'
-                  ? 'bg-amber-600 text-white shadow-xs'
-                  : 'bg-amber-50 text-amber-900 hover:bg-amber-100 border border-amber-200'
-              }`}
-              title="חיזוק נושאים הדורשים שיפור"
-            >
-              <Target className="w-3.5 h-3.5 text-amber-600" />
-              <span>חיזוק נושאים</span>
-            </button>
+            {/* Non-student actions (Reinforcement topics and Parent Area) */}
+            {!isStudent && (
+              <>
+                {/* Reinforcement topics shortcut (Desktop only) */}
+                <button
+                  type="button"
+                  onClick={() => setActiveView('reinforcement')}
+                  className={`hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
+                    activeView === 'reinforcement'
+                      ? 'bg-amber-600 text-white shadow-xs'
+                      : 'bg-amber-50 text-amber-900 hover:bg-amber-100 border border-amber-200'
+                  }`}
+                  title="חיזוק נושאים הדורשים שיפור"
+                >
+                  <Target className="w-3.5 h-3.5 text-amber-600" />
+                  <span>חיזוק נושאים</span>
+                </button>
 
-            {/* Parent Area Toggle */}
-            <button
-              type="button"
-              onClick={() => setActiveView(activeView === 'parent' ? 'home' : 'parent')}
-              className={`px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
-                activeView === 'parent'
-                  ? 'bg-slate-900 text-white shadow-xs'
-                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
-              }`}
-            >
-              <ShieldCheck className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-              <span className="hidden sm:inline">אזור הורה</span>
-            </button>
+                {/* Parent Area Toggle */}
+                <button
+                  type="button"
+                  onClick={() => setActiveView(activeView === 'parent' ? 'home' : 'parent')}
+                  className={`px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
+                    activeView === 'parent'
+                      ? 'bg-slate-900 text-white shadow-xs'
+                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
+                  }`}
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                  <span className="hidden sm:inline">אזור הורה</span>
+                </button>
+              </>
+            )}
 
             {/* Auth / Profile Button */}
             {userProfile.role === 'student' ? (

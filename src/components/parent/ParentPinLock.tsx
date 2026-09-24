@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Lock,
   Unlock,
@@ -27,15 +27,42 @@ export const ParentPinLock: React.FC<ParentPinLockProps> = ({ onSuccess, onCance
   const [shake, setShake] = useState<boolean>(false);
   const [resetConfirmOpen, setResetConfirmOpen] = useState<boolean>(false);
 
+  const onSuccessRef = useRef(onSuccess);
+  useEffect(() => {
+    onSuccessRef.current = onSuccess;
+  });
+
+  const checkPin = useCallback((enteredPin: string) => {
+    if (verifyParentPin(enteredPin)) {
+      setIsSuccess(true);
+      setErrorMsg(null);
+      setTimeout(() => {
+        if (onSuccessRef.current) {
+          onSuccessRef.current();
+        }
+      }, 250);
+    } else {
+      setShake(true);
+      setErrorMsg('קוד ה-PIN שהוזן שגוי. נסו שוב.');
+      setTimeout(() => {
+        setShake(false);
+        setPin('');
+      }, 600);
+    }
+  }, []);
+
   const handleDigit = useCallback((digit: string) => {
     if (isSuccess) return;
     setErrorMsg(null);
     setPin((prev) => {
       if (prev.length >= 4) return prev;
       const next = prev + digit;
+      if (next.length === 4) {
+        checkPin(next);
+      }
       return next;
     });
-  }, [isSuccess]);
+  }, [isSuccess, checkPin]);
 
   const handleDelete = useCallback(() => {
     if (isSuccess) return;
@@ -49,28 +76,6 @@ export const ParentPinLock: React.FC<ParentPinLockProps> = ({ onSuccess, onCance
     setPin('');
   }, [isSuccess]);
 
-  // Check PIN whenever it reaches 4 digits
-  useEffect(() => {
-    if (pin.length === 4) {
-      if (verifyParentPin(pin)) {
-        setIsSuccess(true);
-        setErrorMsg(null);
-        const timer = setTimeout(() => {
-          onSuccess();
-        }, 400);
-        return () => clearTimeout(timer);
-      } else {
-        setShake(true);
-        setErrorMsg('קוד ה-PIN שהוזן שגוי. נסו שוב.');
-        const shakeTimer = setTimeout(() => {
-          setShake(false);
-          setPin('');
-        }, 600);
-        return () => clearTimeout(shakeTimer);
-      }
-    }
-  }, [pin, onSuccess]);
-
   // Physical keyboard support
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -80,12 +85,14 @@ export const ParentPinLock: React.FC<ParentPinLockProps> = ({ onSuccess, onCance
         handleDelete();
       } else if (e.key === 'Escape') {
         onCancel();
+      } else if (e.key === 'Enter' && pin.length === 4) {
+        checkPin(pin);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleDigit, handleDelete, onCancel]);
+  }, [handleDigit, handleDelete, onCancel, pin, checkPin]);
 
   const handleResetToDefault = () => {
     resetParentPinToDefault();

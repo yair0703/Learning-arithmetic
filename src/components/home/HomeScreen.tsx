@@ -56,6 +56,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const recommended = getRecommendedTopicToReinforce(progress);
   const recommendedTopic = TOPICS.find((t) => t.id === recommended.topicId) || TOPICS[1];
 
+  const isStudent = userProfile?.role === 'student' && Boolean(userProfile?.displayName);
+
   const getTopicIcon = (iconName: string) => {
     switch (iconName) {
       case 'PieChart':
@@ -79,6 +81,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     }
   };
 
+  const scrollToChapters = () => {
+    const el = document.getElementById('chapters-section');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   return (
     <div className="flex flex-col gap-8 max-w-5xl mx-auto py-2" id="home-screen">
       {/* Top Welcome Header */}
@@ -89,7 +98,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             <span>מסלולים פלוס – כיתה ה׳ | שברים – חלק א׳</span>
             {userProfile?.studentCode && (
               <span className="bg-white/20 px-2 py-0.5 rounded text-[10px] font-mono">
-                קוד: {userProfile.studentCode}
+                קוד אישי: {userProfile.studentCode}
               </span>
             )}
           </div>
@@ -106,42 +115,48 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           <button
             type="button"
             onClick={onOpenFindTheMistake}
-            className="px-4 py-2.5 bg-teal-500/90 hover:bg-teal-500 text-white rounded-xl text-xs md:text-sm font-bold flex items-center gap-2 transition-all shadow-xs border border-teal-300/40"
+            className="px-4 py-2.5 bg-teal-500/90 hover:bg-teal-500 text-white rounded-xl text-xs md:text-sm font-bold flex items-center gap-2 transition-all shadow-xs border border-teal-300/40 cursor-pointer active:scale-95"
           >
             <GraduationCap className="w-4 h-4 text-teal-100" />
             <span>היה אתה המורה 🧑‍🏫</span>
           </button>
-          <button
-            type="button"
-            onClick={onOpenReinforcement}
-            className="px-4 py-2.5 bg-amber-500/90 hover:bg-amber-500 text-white rounded-xl text-xs md:text-sm font-bold flex items-center gap-2 transition-all shadow-xs border border-amber-300/40"
-          >
-            <Target className="w-4 h-4 text-amber-100" />
-            <span>חיזוק נושאים</span>
-          </button>
+          
           <button
             type="button"
             onClick={onOpenSandbox}
-            className="px-4 py-2.5 bg-white/15 hover:bg-white/25 backdrop-blur-xs border border-white/20 text-white rounded-xl text-xs md:text-sm font-bold flex items-center gap-2 transition-all"
+            className="px-4 py-2.5 bg-white/15 hover:bg-white/25 backdrop-blur-xs border border-white/20 text-white rounded-xl text-xs md:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer active:scale-95"
           >
             <Sparkles className="w-4 h-4 text-amber-300" />
-            <span>מעבדת שברים</span>
+            <span>מעבדת שברים 🧪</span>
           </button>
-          <button
-            type="button"
-            onClick={onOpenParentArea}
-            className="px-4 py-2.5 bg-slate-900/40 hover:bg-slate-900/60 backdrop-blur-xs border border-white/20 text-white rounded-xl text-xs md:text-sm font-bold flex items-center gap-2 transition-all"
-          >
-            <ShieldCheck className="w-4 h-4 text-emerald-300" />
-            <span>אזור הורה</span>
-          </button>
+
+          {!isStudent && (
+            <>
+              <button
+                type="button"
+                onClick={onOpenReinforcement}
+                className="px-4 py-2.5 bg-amber-500/90 hover:bg-amber-500 text-white rounded-xl text-xs md:text-sm font-bold flex items-center gap-2 transition-all shadow-xs border border-amber-300/40 cursor-pointer active:scale-95"
+              >
+                <Target className="w-4 h-4 text-amber-100" />
+                <span>חיזוק נושאים</span>
+              </button>
+              <button
+                type="button"
+                onClick={onOpenParentArea}
+                className="px-4 py-2.5 bg-slate-900/40 hover:bg-slate-900/60 backdrop-blur-xs border border-white/20 text-white rounded-xl text-xs md:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer active:scale-95"
+              >
+                <ShieldCheck className="w-4 h-4 text-emerald-300" />
+                <span>אזור הורה</span>
+              </button>
+            </>
+          )}
         </div>
 
         {/* Decorative circle */}
         <div className="absolute -left-12 -bottom-12 w-48 h-48 rounded-full bg-white/10 pointer-events-none blur-xl" />
       </div>
 
-      {/* 3 Quick Action Blocks: תרגול יומי / הנושא שאני צריך לחזק / התקדמות שלי */}
+      {/* 3 Quick Action Blocks */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* 1. תרגול יומי */}
         <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border-2 border-emerald-200 p-5 rounded-3xl shadow-xs flex flex-col justify-between gap-4">
@@ -163,60 +178,93 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           <button
             type="button"
             onClick={onStartDailyPractice}
-            className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-black rounded-xl shadow-xs flex items-center justify-center gap-2 active:scale-95 transition-all"
+            className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-black rounded-xl shadow-xs flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer"
           >
             <span>התחל תרגול יומי</span>
             <ChevronLeft className="w-4 h-4" />
           </button>
         </div>
 
-        {/* 2. הנושא שאני צריך לחזק */}
-        <div className="bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-200 p-5 rounded-3xl shadow-xs flex flex-col justify-between gap-4">
-          <div className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between">
-              <span className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center shadow-sm">
-                <Target className="w-5 h-5" />
-              </span>
-              <span className="text-[11px] font-bold bg-amber-200/70 text-amber-800 px-2 py-0.5 rounded-full">
-                חיזוק ממוקד 🎯
-              </span>
-            </div>
-            <h2 className="text-lg font-black text-amber-950 mt-1">
-              הנושא שאני צריך לחזק
-            </h2>
-            <p className="text-xs text-amber-900 leading-relaxed font-medium">
-              {recommendedTopic.title}
-            </p>
-            <p className="text-[11px] text-amber-800/90">{recommended.reason}</p>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => onSelectTopicToLearn(recommendedTopic.id)}
-                className="flex-1 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1 active:scale-95"
-              >
-                <span>ללמוד מחדש</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => onSelectTopicToPractice(recommendedTopic.id)}
-                className="flex-1 py-2 bg-amber-100 hover:bg-amber-200 text-amber-900 text-xs font-bold rounded-xl flex items-center justify-center gap-1 active:scale-95"
-              >
-                <span>לתרגל</span>
-              </button>
+        {/* 2. בלוק אמצעי: לתלמיד מחובר -> מעבדת שברים ולמידה | להורה/אורח -> חיזוק ממוקד */}
+        {isStudent ? (
+          <div className="bg-gradient-to-br from-purple-50 to-indigo-50 border-2 border-purple-200 p-5 rounded-3xl shadow-xs flex flex-col justify-between gap-4">
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <span className="w-10 h-10 rounded-2xl bg-purple-600 text-white flex items-center justify-center shadow-sm">
+                  <Sparkles className="w-5 h-5 text-amber-300" />
+                </span>
+                <span className="text-[11px] font-bold bg-purple-200/70 text-purple-900 px-2 py-0.5 rounded-full">
+                  מעבדה אינטראקטיבית 🎨
+                </span>
+              </div>
+              <h2 className="text-lg font-black text-purple-950 mt-1">
+                מעבדת השברים החזותית
+              </h2>
+              <p className="text-xs text-purple-900 leading-relaxed font-medium">
+                התנסות חופשית בצביעה, פסי שברים, עיגולים וישר מספרים.
+              </p>
+              <p className="text-[11px] text-purple-700/90">
+                ראו בזמן אמת שברים שווים, שברים מדומים ומספרים מעורבים!
+              </p>
             </div>
 
             <button
               type="button"
-              onClick={onOpenReinforcement}
-              className="w-full py-1.5 text-center text-xs font-bold text-amber-800 hover:text-amber-950 underline decoration-amber-400"
+              onClick={onOpenSandbox}
+              className="w-full py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-sm font-black rounded-xl shadow-xs flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer"
             >
-              לכל הנושאים הדורשים שיפור ←
+              <span>פתח מעבדת שברים</span>
+              <ChevronLeft className="w-4 h-4" />
             </button>
           </div>
-        </div>
+        ) : (
+          <div className="bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-200 p-5 rounded-3xl shadow-xs flex flex-col justify-between gap-4">
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <span className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center shadow-sm">
+                  <Target className="w-5 h-5" />
+                </span>
+                <span className="text-[11px] font-bold bg-amber-200/70 text-amber-800 px-2 py-0.5 rounded-full">
+                  חיזוק ממוקד 🎯
+                </span>
+              </div>
+              <h2 className="text-lg font-black text-amber-950 mt-1">
+                הנושא שאני צריך לחזק
+              </h2>
+              <p className="text-xs text-amber-900 leading-relaxed font-medium">
+                {recommendedTopic.title}
+              </p>
+              <p className="text-[11px] text-amber-800/90">{recommended.reason}</p>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => onSelectTopicToLearn(recommendedTopic.id)}
+                  className="flex-1 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1 active:scale-95 cursor-pointer"
+                >
+                  <span>ללמוד מחדש</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onSelectTopicToPractice(recommendedTopic.id)}
+                  className="flex-1 py-2 bg-amber-100 hover:bg-amber-200 text-amber-900 text-xs font-bold rounded-xl flex items-center justify-center gap-1 active:scale-95 cursor-pointer"
+                >
+                  <span>לתרגל</span>
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={onOpenReinforcement}
+                className="w-full py-1.5 text-center text-xs font-bold text-amber-800 hover:text-amber-950 underline decoration-amber-400 cursor-pointer"
+              >
+                לכל הנושאים הדורשים שיפור ←
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* 3. התקדמות שלי */}
         <div className="bg-gradient-to-br from-indigo-50 to-blue-50 border-2 border-indigo-200 p-5 rounded-3xl shadow-xs flex flex-col justify-between gap-3">
@@ -272,14 +320,25 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             })()}
           </div>
 
-          <button
-            type="button"
-            onClick={onOpenParentArea}
-            className="w-full py-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-900 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5"
-          >
-            <span>לצפייה בדוח מלא</span>
-            <ChevronLeft className="w-3.5 h-3.5" />
-          </button>
+          {isStudent ? (
+            <button
+              type="button"
+              onClick={scrollToChapters}
+              className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-all shadow-2xs"
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              <span>המשך למידה בפרקי הספר ↓</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onOpenParentArea}
+              className="w-full py-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-900 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <span>לצפייה בדוח מלא</span>
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -316,7 +375,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       </div>
 
       {/* Chapters & Topics Grid (פרק שברים – חלק א׳) */}
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4" id="chapters-section">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-xl md:text-2xl font-black text-slate-900">

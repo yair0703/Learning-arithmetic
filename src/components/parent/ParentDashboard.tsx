@@ -161,11 +161,15 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
     }
   };
 
+  const handleUnlockSuccess = useCallback(() => {
+    setIsUnlocked(true);
+  }, []);
+
   // If not authenticated, present the PIN lock screen
   if (!isUnlocked) {
     return (
       <ParentPinLock
-        onSuccess={() => setIsUnlocked(true)}
+        onSuccess={handleUnlockSuccess}
         onCancel={onBackToStudent}
       />
     );
