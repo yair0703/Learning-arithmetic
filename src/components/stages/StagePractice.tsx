@@ -82,7 +82,7 @@ export const StagePractice: React.FC<StagePracticeProps> = ({
     tip?: string;
   } | null>(null);
 
-  const handleSelectLevelFromRoadmap = (levelNum: 1 | 2 | 3) => {
+  const handleSelectLevelFromRoadmap = (levelNum: 1 | 2 | 3 | 4) => {
     const freshList = getFreshExercisesForTopic(
       topic.id,
       levelNum,
@@ -321,7 +321,7 @@ export const StagePractice: React.FC<StagePracticeProps> = ({
             <div className="bg-amber-50/70 border border-amber-100 rounded-2xl p-4 flex flex-col items-center">
               <span className="text-xs text-amber-700 font-medium">רמת קושי נוכחית</span>
               <div className="flex items-center gap-1 mt-1">
-                {[1, 2, 3].map((starIdx) => (
+                {[1, 2, 3, 4].map((starIdx) => (
                   <Star
                     key={starIdx}
                     className={`w-4 h-4 ${
@@ -454,7 +454,7 @@ export const StagePractice: React.FC<StagePracticeProps> = ({
               <span>מד שליטה:</span>
               <span className="text-amber-300">{mastery.percentage}%</span>
               <div className="flex items-center">
-                {[1, 2, 3].map((s) => (
+                {[1, 2, 3, 4].map((s) => (
                   <Star
                     key={s}
                     className={`w-3 h-3 ${s <= mastery.stars ? 'text-amber-300 fill-amber-300' : 'text-white/40'}`}

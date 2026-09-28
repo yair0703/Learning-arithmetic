@@ -7,7 +7,7 @@ export interface TopicMasteryInfo {
   status: 'not_started' | 'in_progress' | 'proficient' | 'master';
   statusHebrew: string;
   badgeClass: string;
-  stars: number; // 0, 1, 2, 3
+  stars: number; // 0, 1, 2, 3, 4
   levelLabel: string;
 }
 
@@ -32,6 +32,7 @@ export function getTopicMastery(topicProg?: StudentProgress['topicsProgress'][To
 
   if (topicProg.currentLevel === 2) score += 10;
   if (topicProg.currentLevel === 3) score += 20;
+  if (topicProg.currentLevel === 4) score += 30;
 
   const percentage = Math.min(100, Math.max(10, score));
 
@@ -40,7 +41,12 @@ export function getTopicMastery(topicProg?: StudentProgress['topicsProgress'][To
   let badgeClass = 'bg-amber-100 text-amber-800 border-amber-200';
   let stars = 1;
 
-  if (percentage >= 85 || (topicProg.currentLevel === 3 && topicProg.correctCount >= 5)) {
+  if (topicProg.currentLevel === 4 || (percentage >= 95 && topicProg.correctCount >= 10)) {
+    status = 'master';
+    statusHebrew = 'מאסטר זהב! 👑⭐';
+    badgeClass = 'bg-amber-100 text-amber-900 border-amber-300';
+    stars = 4;
+  } else if (percentage >= 85 || (topicProg.currentLevel === 3 && topicProg.correctCount >= 5)) {
     status = 'master';
     statusHebrew = 'אלוף הנושא! 🏆';
     badgeClass = 'bg-emerald-100 text-emerald-800 border-emerald-300';
@@ -52,7 +58,14 @@ export function getTopicMastery(topicProg?: StudentProgress['topicsProgress'][To
     stars = 2;
   }
 
-  const levelLabel = topicProg.currentLevel === 3 ? 'רמה 3 (מתקדם)' : topicProg.currentLevel === 2 ? 'רמה 2 (בינוני)' : 'רמה 1 (בסיס)';
+  const levelLabel =
+    topicProg.currentLevel === 4
+      ? 'מאסטר ⭐ (אתגר זהב)'
+      : topicProg.currentLevel === 3
+      ? 'רמה 3 (מתקדם)'
+      : topicProg.currentLevel === 2
+      ? 'רמה 2 (בינוני)'
+      : 'רמה 1 (בסיס)';
 
   return {
     percentage,
@@ -65,7 +78,7 @@ export function getTopicMastery(topicProg?: StudentProgress['topicsProgress'][To
 }
 
 export interface LevelCumulativeProgress {
-  levelNumber: 1 | 2 | 3;
+  levelNumber: 1 | 2 | 3 | 4;
   levelTitle: string;
   isUnlocked: boolean;
   isCurrentLevel: boolean;
@@ -81,7 +94,7 @@ export interface LevelCumulativeProgress {
 export interface TopicCumulativeProgressStatus {
   topicId: TopicId;
   topicTitle: string;
-  currentUnlockedLevel: 1 | 2 | 3;
+  currentUnlockedLevel: 1 | 2 | 3 | 4;
   totalExercisesSolved: number;
   totalCorrectAnswers: number;
   overallAccuracyRate: number;
@@ -114,16 +127,23 @@ export function getTopicCumulativeProgressStatus(
   const currentLvl = topicProg.currentLevel || 1;
   const overallAccuracy = totalSolved > 0 ? Math.round((totalCorrect / totalSolved) * 100) : 0;
 
-  const levelNames: Record<1 | 2 | 3, string> = {
+  const levelNames: Record<1 | 2 | 3 | 4, string> = {
     1: 'רמה 1 - יסודות והבנת המושג',
     2: 'רמה 2 - יישום ותרגול מודרך',
-    3: 'רמה 3 - אתגר ושליטה מלאה'
+    3: 'רמה 3 - אתגר ושליטה מלאה',
+    4: 'מאסטר ⭐ - אתגר זהב'
   };
 
-  const levelsProgress: LevelCumulativeProgress[] = ([1, 2, 3] as const).map((lvl) => {
-    const isUnlocked = lvl === 1 || currentLvl >= lvl || (lvl === 2 && totalCorrect >= 5);
+  const levelsProgress: LevelCumulativeProgress[] = ([1, 2, 3, 4] as const).map((lvl) => {
+    // Level 4 unlocks only after level 3 is finished (currentLvl is 4 or currentLvl is 3 with sufficient mastery)
+    const isUnlocked =
+      lvl === 1 ||
+      currentLvl >= lvl ||
+      (lvl === 2 && totalCorrect >= 5) ||
+      (lvl === 3 && totalCorrect >= 10) ||
+      (lvl === 4 && (currentLvl >= 4 || (currentLvl === 3 && totalCorrect >= 15)));
     const isCurrentLevel = currentLvl === lvl;
-    const isCompleted = currentLvl > lvl || (currentLvl === 3 && lvl === 3 && totalCorrect >= 15);
+    const isCompleted = currentLvl > lvl || (currentLvl === 4 && lvl === 4 && totalCorrect >= 20);
 
     let lvlSolved = 0;
     let lvlCorrect = 0;
@@ -148,14 +168,14 @@ export function getTopicCumulativeProgressStatus(
     let badgeClass = 'bg-slate-100 text-slate-500 border-slate-200';
 
     if (isCompleted) {
-      statusHebrew = 'הושלמה בהצלחה ✨';
-      badgeClass = 'bg-emerald-100 text-emerald-800 border-emerald-300';
+      statusHebrew = lvl === 4 ? 'מאסטר זהב הושלם! 👑' : 'הושלמה בהצלחה ✨';
+      badgeClass = lvl === 4 ? 'bg-amber-100 text-amber-900 border-amber-400 font-bold' : 'bg-emerald-100 text-emerald-800 border-emerald-300';
     } else if (isCurrentLevel) {
-      statusHebrew = 'רמה פעילה 🎯';
-      badgeClass = 'bg-amber-100 text-amber-900 border-amber-300 font-bold';
+      statusHebrew = lvl === 4 ? 'אתגר מאסטר פעיל ⭐' : 'רמה פעילה 🎯';
+      badgeClass = lvl === 4 ? 'bg-amber-200 text-amber-950 border-amber-400 font-bold' : 'bg-amber-100 text-amber-900 border-amber-300 font-bold';
     } else if (isUnlocked) {
-      statusHebrew = 'פתוחה לתרגול 🔓';
-      badgeClass = 'bg-sky-100 text-sky-800 border-sky-200';
+      statusHebrew = lvl === 4 ? 'פתוח למאסטר ⭐' : 'פתוחה לתרגול 🔓';
+      badgeClass = lvl === 4 ? 'bg-amber-50 text-amber-800 border-amber-300' : 'bg-sky-100 text-sky-800 border-sky-200';
     }
 
     return {
@@ -320,8 +340,8 @@ export function recordExerciseAttempt(
     newProgress.dailyHistory[todayKey].correct += 1;
 
     // Adaptive difficulty upgrade
-    if (topicProg.consecutiveCorrect >= 2 && topicProg.currentLevel < 3) {
-      topicProg.currentLevel = (topicProg.currentLevel + 1) as 1 | 2 | 3;
+    if (topicProg.consecutiveCorrect >= 2 && topicProg.currentLevel < 4) {
+      topicProg.currentLevel = (topicProg.currentLevel + 1) as 1 | 2 | 3 | 4;
       topicProg.consecutiveCorrect = 0;
     }
   } else {
@@ -331,7 +351,7 @@ export function recordExerciseAttempt(
 
     // Adaptive difficulty downgrade
     if (topicProg.consecutiveIncorrect >= 2 && topicProg.currentLevel > 1) {
-      topicProg.currentLevel = (topicProg.currentLevel - 1) as 1 | 2 | 3;
+      topicProg.currentLevel = (topicProg.currentLevel - 1) as 1 | 2 | 3 | 4;
       topicProg.consecutiveIncorrect = 0;
     }
 
@@ -384,7 +404,7 @@ export interface TopicImprovementDetail {
   accuracyRate: number;
   solvedCount: number;
   errorCount: number;
-  currentLevel: 1 | 2 | 3;
+  currentLevel: 1 | 2 | 3 | 4;
   reinforcementReason: string;
   keyRuleReminder: string;
   identifiedMisconceptions: {

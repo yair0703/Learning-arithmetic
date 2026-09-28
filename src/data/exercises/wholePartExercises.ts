@@ -251,5 +251,80 @@ export const wholePartExercises: Exercise[] = [
     gentleWrongFeedback: {
       default: 'זכרו תמיד: שבר מתמטי קיים רק כאשר החלוקה היא לחלקים שווים בדיוק!'
     }
+  },
+  {
+    id: 'wp-master-1',
+    topicId: 'whole-part',
+    skillTag: 'identify_fraction_shape',
+    difficulty: 4,
+    title: 'מאסטר ⭐: פירוק מורכב של שטח בריבוע',
+    prompt: 'ריבוע גדול חולק לשני חצאים. חצי אחד נשאר שלם, והחצי השני חולק ל-4 משולשים שווים. נצבע משולש אחד כזה. איזה שבר מהריבוע הגדול כולו נצבע?',
+    hintSteps: [
+      'רמז 1: כמה משולשים קטנים כאלה ייכנסו בחצי השני (שלא נחתך)? (עוד 4 משולשים).',
+      'רמז 2: כמה משולשים שווים בסך הכל מרכיבים את הריבוע השלם כולו? (4 + 4 = 8 משולשים).'
+    ],
+    extraExplanation: 'אם חצי ריבוע מכיל 4 משולשים, הריבוע כולו מכיל 8 משולשים שווים. לכן משולש אחד הוא 1/8 (שמינית) מהריבוע הגדול.',
+    visualType: 'bar',
+    visualProps: { totalParts: 8, coloredParts: 1, color: '#f59e0b' },
+    answerType: 'choice',
+    options: [
+      { id: 'a', label: '1/8', isCorrect: true },
+      { id: 'b', label: '1/4', isCorrect: false, misconceptionExplanation: '1/4 זה החלק מתוך החצי בלבד, אך מתוך כל הריבוע השלם זה רק 1/8!' },
+      { id: 'c', label: '1/5', isCorrect: false, misconceptionExplanation: 'אסור לספור את החצי הלא-מחולק כחלק אחד, כי החלקים חייבים להיות שווים בגודלם!' },
+      { id: 'd', label: '1/6', isCorrect: false, misconceptionExplanation: 'ספור לפי חלוקה שווה: 4 משולשים בכל חצי = 8 משולשים בשלם.' }
+    ],
+    gentleWrongFeedback: {
+      default: 'מלכודת מאסטר קלאסית: כדי לדעת את השבר מהשלם, חייבים לדמיין שכל הריבוע חולק לחלקים שווים באותו גודל (8 שמיניות)!'
+    }
+  },
+  {
+    id: 'wp-master-2',
+    topicId: 'whole-part',
+    skillTag: 'identify_fraction_shape',
+    difficulty: 4,
+    title: 'מאסטר ⭐: מלכודת שטחים וצורות שונות',
+    prompt: 'צורת משושה חולקה ל-6 משולשים שווים. נצבעו 2 משולשים, ובנוסף חצי ממשולש שלישי. איזה שבר מתוך המשושה כולו נצבע בסך הכל?',
+    hintSteps: [
+      'רמז 1: בואו נמדוד את כל המשושה ביחידות קטנות של "חצי משולש". כמה חצאי-משולשים יש בכל המשושה? (6 × 2 = 12).',
+      'רמז 2: כמה חצאי-משולשים נצבעו? 2 משולשים שלמים (4 חצאים) + חצי משולש נוסף = 5 חצאים.'
+    ],
+    extraExplanation: 'אם נחלק כל אחד מ-6 המשולשים ל-2 חלקים שווים, נקבל 12 חלקים שווים בסך הכל. נצבעו 5 חלקים כאלה, ולכן השבר הוא 5/12.',
+    visualType: 'bar',
+    visualProps: { totalParts: 12, coloredParts: 5, color: '#d97706' },
+    answerType: 'choice',
+    options: [
+      { id: 'a', label: '5/12', isCorrect: true },
+      { id: 'b', label: '2.5/6', isCorrect: false, misconceptionExplanation: 'בשבר פשוט תקני המונה והמכנה חייבים להיות מספרים שלמים (כופלים פי 2 ומקבלים 5/12).' },
+      { id: 'c', label: '3/6', isCorrect: false, misconceptionExplanation: 'נצבעו פחות מ-3 משולשים מלאים (המשולש השלישי נצבע רק בחציו).' },
+      { id: 'd', label: '5/6', isCorrect: false, misconceptionExplanation: '5/6 היה מייצג 5 משולשים שלמים, אך נצבעו רק 2 וחצי משולשים.' }
+    ],
+    gentleWrongFeedback: {
+      default: 'חשיבת מאסטר: כשיש חלקי חלקים, מחלקים את כל השלם ליחידה הקטנה ביותר (12 חצאים) וסופרים כמה נצבעו!'
+    }
+  },
+  {
+    id: 'wp-master-3',
+    topicId: 'whole-part',
+    skillTag: 'identify_fraction_shape',
+    difficulty: 4,
+    title: 'מאסטר ⭐: הרכבת השלם מחלקים משלימים',
+    prompt: 'דני צבע 3/8 מעוגה, ומאיה צבעה 1/4 מאותה העוגה. איזה חלק מהעוגה נותר ללא צבע?',
+    hintSteps: [
+      'רמז 1: הרחיבו את החלק של מאיה לשמיניות: כמה שמיניות יש ברבע (1/4)? (1/4 = 2/8).',
+      'רמז 2: חברו את מה שדני ומאיה צבעו יחד: 3/8 + 2/8 = 5/8. כמה נשאר עד לשלם מלא (8/8)?'
+    ],
+    extraExplanation: 'מאיה צבעה 1/4 = 2/8. ביחד דני ומאיה צבעו 3/8 + 2/8 = 5/8. השלם הוא 8/8, ולכן החלק שנותר לא צבוע הוא 8/8 - 5/8 = 3/8.',
+    visualType: 'bar',
+    visualProps: { totalParts: 8, coloredParts: 5, color: '#eab308' },
+    answerType: 'choice',
+    options: [
+      { id: 'a', label: '3/8', isCorrect: true },
+      { id: 'b', label: '5/8', isCorrect: false, misconceptionExplanation: '5/8 זה החלק שדני ומאיה צבעו ביחד, אך השאלה שאלה על החלק שנותר ריק!' },
+      { id: 'c', label: '1/2', isCorrect: false, misconceptionExplanation: 'חצי מהעוגה הוא 4/8, אך נותרו 3/8.' },
+      { id: 'd', label: '4/8', isCorrect: false, misconceptionExplanation: 'בדקו שוב את החיבור: 3 שמיניות ועוד 2 שמיניות הן 5 שמיניות, נותרו 3 שמיניות.' }
+    ],
+    gentleWrongFeedback: {
+      default: 'המירו את הרבע לשמיניות (2/8), סכמו את החלק שנצבע (5/8), ומצאו את המשלים לשלם (3/8).'
+    }
   }
 ];

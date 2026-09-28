@@ -15,7 +15,7 @@ import {
 interface TopicLevelRoadmapProps {
   topic: TopicInfo;
   progress: StudentProgress;
-  onSelectLevel: (levelNumber: 1 | 2 | 3) => void;
+  onSelectLevel: (levelNumber: 1 | 2 | 3 | 4) => void;
   onClose: () => void;
 }
 
@@ -27,10 +27,11 @@ export const TopicLevelRoadmap: React.FC<TopicLevelRoadmapProps> = ({
 }) => {
   const cumulativeStatus = getTopicCumulativeProgressStatus(progress, topic.id);
 
-  const levelDescriptions: Record<1 | 2 | 3, string> = {
+  const levelDescriptions: Record<1 | 2 | 3 | 4, string> = {
     1: 'זיהוי והבנה בסיסית של מושג השבר, המכנה והמונה.',
     2: 'יישום מודרך, חישובים ותרגילים ברמת מיומנות בינונית.',
-    3: 'שאלות אתגר, בעיות מילוליות ושליטה מלאה בנושא.'
+    3: 'שאלות אתגר, בעיות מילוליות ושליטה מלאה בנושא.',
+    4: 'שאלות מאסטר זהובות – אתגר גבוה עם איורים ומלכודות חשיבה.'
   };
 
   return (
@@ -96,7 +97,9 @@ export const TopicLevelRoadmap: React.FC<TopicLevelRoadmapProps> = ({
         <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-3 text-center">
           <div className="text-[11px] text-indigo-700 font-medium">רמה פתוחה כעת</div>
           <div className="text-lg md:text-xl font-black text-indigo-900 mt-0.5">
-            רמה {cumulativeStatus.currentUnlockedLevel}
+            {cumulativeStatus.currentUnlockedLevel === 4
+              ? 'מאסטר ⭐'
+              : `רמה ${cumulativeStatus.currentUnlockedLevel}`}
           </div>
         </div>
       </div>
@@ -107,6 +110,7 @@ export const TopicLevelRoadmap: React.FC<TopicLevelRoadmapProps> = ({
           const isCurrent = lvlProg.isCurrentLevel;
           const isUnlocked = lvlProg.isUnlocked;
           const isCompleted = lvlProg.isCompleted;
+          const isMaster = lvlProg.levelNumber === 4;
 
           const progressPercent = Math.min(
             100,
@@ -124,7 +128,9 @@ export const TopicLevelRoadmap: React.FC<TopicLevelRoadmapProps> = ({
               <div className="flex items-center gap-3 md:flex-col md:items-center justify-start shrink-0 z-10">
                 <div
                   className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black text-lg transition-all shadow-sm ${
-                    isCompleted
+                    isMaster && isUnlocked
+                      ? 'bg-gradient-to-tr from-amber-400 via-yellow-400 to-amber-500 text-slate-950 shadow-amber-300 ring-4 ring-amber-200'
+                      : isCompleted
                       ? 'bg-gradient-to-tr from-emerald-500 to-teal-500 text-white shadow-emerald-200 ring-4 ring-emerald-100'
                       : isCurrent
                       ? 'bg-gradient-to-tr from-amber-400 to-amber-500 text-slate-950 shadow-amber-200 ring-4 ring-amber-100 animate-pulse'
@@ -135,6 +141,8 @@ export const TopicLevelRoadmap: React.FC<TopicLevelRoadmapProps> = ({
                 >
                   {isCompleted ? (
                     <CheckCircle2 className="w-7 h-7" />
+                  ) : isMaster && isUnlocked ? (
+                    <Sparkles className="w-7 h-7 text-amber-950" />
                   ) : isCurrent ? (
                     <Target className="w-7 h-7" />
                   ) : isUnlocked ? (
@@ -145,12 +153,14 @@ export const TopicLevelRoadmap: React.FC<TopicLevelRoadmapProps> = ({
                 </div>
 
                 <div className="md:text-center">
-                  <div className="text-xs font-bold text-slate-700">
-                    רמה {lvlProg.levelNumber}
+                  <div className={`text-xs font-black ${isMaster ? 'text-amber-700' : 'text-slate-700'}`}>
+                    {isMaster ? 'מאסטר ⭐' : `רמה ${lvlProg.levelNumber}`}
                   </div>
                   <div
                     className={`text-[10px] font-bold px-2 py-0.5 rounded-full mt-0.5 inline-block ${
-                      isCompleted
+                      isMaster && isUnlocked
+                        ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                        : isCompleted
                         ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
                         : isCurrent
                         ? 'bg-amber-100 text-amber-900 border border-amber-300'
@@ -167,7 +177,9 @@ export const TopicLevelRoadmap: React.FC<TopicLevelRoadmapProps> = ({
               {/* Station Level Card */}
               <div
                 className={`flex-1 rounded-2xl p-5 border transition-all flex flex-col justify-between gap-4 ${
-                  isCurrent
+                  isMaster && isUnlocked
+                    ? 'bg-gradient-to-r from-amber-50/90 via-yellow-50/60 to-amber-50/90 border-amber-400 shadow-md shadow-amber-100 ring-1 ring-amber-300'
+                    : isCurrent
                     ? 'bg-gradient-to-r from-amber-50/80 to-indigo-50/80 border-amber-300 shadow-md shadow-amber-100'
                     : isCompleted
                     ? 'bg-emerald-50/40 border-emerald-200'
@@ -180,7 +192,12 @@ export const TopicLevelRoadmap: React.FC<TopicLevelRoadmapProps> = ({
                   <div>
                     <h3 className="text-base md:text-lg font-black text-slate-900 flex items-center gap-2">
                       <span>{lvlProg.levelTitle}</span>
-                      {isCurrent && (
+                      {isMaster && (
+                        <span className="text-[10px] bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 font-black px-2 py-0.5 rounded-md uppercase shadow-xs">
+                          ⭐ זהב
+                        </span>
+                      )}
+                      {isCurrent && !isMaster && (
                         <span className="text-[10px] bg-amber-400 text-slate-950 font-black px-2 py-0.5 rounded-md uppercase">
                           רמה פעילה
                         </span>
@@ -192,7 +209,9 @@ export const TopicLevelRoadmap: React.FC<TopicLevelRoadmapProps> = ({
                   </div>
 
                   {/* Level Questions Count Badge */}
-                  <div className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-700 shrink-0 self-start sm:self-auto shadow-2xs">
+                  <div className={`border rounded-xl px-3 py-1.5 text-xs font-bold shrink-0 self-start sm:self-auto shadow-2xs ${
+                    isMaster ? 'bg-amber-100/80 border-amber-300 text-amber-900' : 'bg-white border-slate-200 text-slate-700'
+                  }`}>
                     {lvlProg.correctCount} / {lvlProg.requiredCorrectToPass} תשובות נכונות לפתיחה
                   </div>
                 </div>
@@ -203,14 +222,16 @@ export const TopicLevelRoadmap: React.FC<TopicLevelRoadmapProps> = ({
                     <span className="text-slate-600 font-medium">
                       התקדמות ברמה: {lvlProg.solvedCount} שאלות נענו
                     </span>
-                    <span className="font-bold text-indigo-700">
+                    <span className={`font-bold ${isMaster ? 'text-amber-700' : 'text-indigo-700'}`}>
                       {progressPercent}% הושלמו
                     </span>
                   </div>
                   <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden p-0.5 border border-slate-200">
                     <div
                       className={`h-full rounded-full transition-all duration-500 ${
-                        isCompleted
+                        isMaster
+                          ? 'bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500'
+                          : isCompleted
                           ? 'bg-gradient-to-r from-emerald-500 to-teal-500'
                           : isCurrent
                           ? 'bg-gradient-to-r from-amber-400 to-orange-500'
@@ -227,7 +248,7 @@ export const TopicLevelRoadmap: React.FC<TopicLevelRoadmapProps> = ({
                     {!isUnlocked ? (
                       <span className="text-slate-500 font-medium flex items-center gap-1">
                         <Lock className="w-3.5 h-3.5" />
-                        השלם 3 תשובות נכונות ברמה {lvlProg.levelNumber - 1} לפתיחה
+                        השלם 3 תשובות נכונות ברמה {lvlProg.levelNumber === 4 ? '3' : lvlProg.levelNumber - 1} לפתיחה
                       </span>
                     ) : isCompleted ? (
                       <span className="text-emerald-700 font-bold flex items-center gap-1">
@@ -247,7 +268,9 @@ export const TopicLevelRoadmap: React.FC<TopicLevelRoadmapProps> = ({
                     disabled={!isUnlocked}
                     onClick={() => onSelectLevel(lvlProg.levelNumber)}
                     className={`px-5 py-2.5 rounded-xl font-black text-xs md:text-sm flex items-center gap-2 transition-all cursor-pointer ${
-                      isCurrent
+                      isMaster && isUnlocked
+                        ? 'bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:from-amber-300 hover:to-yellow-300 text-slate-950 shadow-md shadow-amber-200 active:scale-95 ring-2 ring-amber-300'
+                        : isCurrent
                         ? 'bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 shadow-md shadow-amber-200 active:scale-95'
                         : isCompleted
                         ? 'bg-emerald-100 hover:bg-emerald-200 text-emerald-900 border border-emerald-300'
@@ -266,9 +289,15 @@ export const TopicLevelRoadmap: React.FC<TopicLevelRoadmapProps> = ({
                         <Play className="w-4 h-4 fill-current" />
                         <span>
                           {isCurrent
-                            ? `המשך תרגול ברמה ${lvlProg.levelNumber}`
+                            ? isMaster
+                              ? 'המשך תרגול מאסטר ⭐'
+                              : `המשך תרגול ברמה ${lvlProg.levelNumber}`
                             : isCompleted
-                            ? `תרגל שוב ברמה ${lvlProg.levelNumber}`
+                            ? isMaster
+                              ? 'תרגל שוב מאסטר ⭐'
+                              : `תרגל שוב ברמה ${lvlProg.levelNumber}`
+                            : isMaster
+                            ? 'התחל מאסטר ⭐'
                             : `התחל רמה ${lvlProg.levelNumber}`}
                         </span>
                       </>

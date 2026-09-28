@@ -54,7 +54,7 @@ export interface Exercise {
   id: string;
   topicId: TopicId;
   skillTag: SkillTag;
-  difficulty: 1 | 2 | 3; // 1 = קל, 2 = בינוני, 3 = מתקדם
+  difficulty: 1 | 2 | 3 | 4; // 1 = קל, 2 = בינוני, 3 = מתקדם, 4 = מאסטר
   title: string;
   prompt: string;
   hintSteps: string[]; // Progressive hints (1st thought direction, 2nd visual clue, 3rd almost-there)
@@ -138,7 +138,7 @@ export interface StudentProgress {
       completedTogether: boolean;
       exercisesSolved: number;
       correctCount: number;
-      currentLevel: 1 | 2 | 3;
+      currentLevel: 1 | 2 | 3 | 4; // 4 = מאסטר
       consecutiveCorrect: number;
       consecutiveIncorrect: number;
     }

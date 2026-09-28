@@ -783,7 +783,7 @@ function generateSummaryReviewExercise(difficulty: 1 | 2 | 3): Exercise {
  */
 export function getFreshExercisesForTopic(
   topicId: TopicId,
-  currentLevel: 1 | 2 | 3 = 1,
+  currentLevel: 1 | 2 | 3 | 4 = 1,
   count: number = 5,
   excludedIds: string[] = []
 ): Exercise[] {
@@ -795,44 +795,47 @@ export function getFreshExercisesForTopic(
   const matchedStatic = staticPool.filter((ex) => ex.difficulty === currentLevel);
   const selected: Exercise[] = [];
 
-  // Take up to 2 static exercises from matching level to preserve curated questions
+  // When Level 4 (Master) or regular level: give priority to static exercises from matching level
   if (matchedStatic.length > 0) {
     const shuffled = shuffleArray(matchedStatic);
-    const chosenStatic = shuffled.slice(0, Math.min(2, matchedStatic.length)).map((ex) => ({
+    const maxStaticToTake = currentLevel === 4 ? Math.min(count, matchedStatic.length) : Math.min(2, matchedStatic.length);
+    const chosenStatic = shuffled.slice(0, maxStaticToTake).map((ex) => ({
       ...ex,
       options: sanitizeExerciseOptions(ex.options)
     }));
     selected.push(...chosenStatic);
   }
 
-  // 2. Fill the rest of the batch dynamically using the generators
+  // 2. Fill the rest of the batch dynamically using the generators (temporarily level 3 for difficulty 4)
+  const generatorDifficulty = (Math.min(3, currentLevel)) as 1 | 2 | 3;
+
   while (selected.length < count) {
     let fresh: Exercise;
     switch (topicId) {
       case 'whole-part':
-        fresh = generateWholePartExercise(currentLevel);
+        fresh = generateWholePartExercise(generatorDifficulty);
         break;
       case 'number-line':
-        fresh = generateNumberLineExercise(currentLevel);
+        fresh = generateNumberLineExercise(generatorDifficulty);
         break;
       case 'mixed-numbers':
-        fresh = generateMixedNumbersExercise(currentLevel);
+        fresh = generateMixedNumbersExercise(generatorDifficulty);
         break;
       case 'same-denom':
-        fresh = generateSameDenomExercise(currentLevel);
+        fresh = generateSameDenomExercise(generatorDifficulty);
         break;
       case 'fractional-amount':
-        fresh = generateFractionalAmountExercise(currentLevel);
+        fresh = generateFractionalAmountExercise(generatorDifficulty);
         break;
       case 'part-of-quantity':
-        fresh = generatePartOfQuantityExercise(currentLevel);
+        fresh = generatePartOfQuantityExercise(generatorDifficulty);
         break;
       case 'decimals-mult-div':
-        fresh = generateDecimalsExercise(currentLevel);
+        fresh = generateDecimalsExercise(generatorDifficulty);
         break;
       case 'summary-review':
       default:
-        fresh = generateSummaryReviewExercise(currentLevel);
+        fresh = generateSummaryReviewExercise(generatorDifficulty);
         break;
     }
     
@@ -848,33 +851,34 @@ export function getFreshExercisesForTopic(
 /**
  * Generates a single exercise with specific difficulty for adaptive challenge mode.
  */
-export function generateSingleExercise(topicId: TopicId, difficulty: 1 | 2 | 3): Exercise {
+export function generateSingleExercise(topicId: TopicId, difficulty: 1 | 2 | 3 | 4): Exercise {
+  const generatorDifficulty = (Math.min(3, difficulty)) as 1 | 2 | 3;
   let ex: Exercise;
   switch (topicId) {
     case 'whole-part':
-      ex = generateWholePartExercise(difficulty);
+      ex = generateWholePartExercise(generatorDifficulty);
       break;
     case 'number-line':
-      ex = generateNumberLineExercise(difficulty);
+      ex = generateNumberLineExercise(generatorDifficulty);
       break;
     case 'mixed-numbers':
-      ex = generateMixedNumbersExercise(difficulty);
+      ex = generateMixedNumbersExercise(generatorDifficulty);
       break;
     case 'same-denom':
-      ex = generateSameDenomExercise(difficulty);
+      ex = generateSameDenomExercise(generatorDifficulty);
       break;
     case 'fractional-amount':
-      ex = generateFractionalAmountExercise(difficulty);
+      ex = generateFractionalAmountExercise(generatorDifficulty);
       break;
     case 'part-of-quantity':
-      ex = generatePartOfQuantityExercise(difficulty);
+      ex = generatePartOfQuantityExercise(generatorDifficulty);
       break;
     case 'decimals-mult-div':
-      ex = generateDecimalsExercise(difficulty);
+      ex = generateDecimalsExercise(generatorDifficulty);
       break;
     case 'summary-review':
     default:
-      ex = generateSummaryReviewExercise(difficulty);
+      ex = generateSummaryReviewExercise(generatorDifficulty);
       break;
   }
 
