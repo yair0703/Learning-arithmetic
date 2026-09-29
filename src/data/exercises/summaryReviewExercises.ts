@@ -138,5 +138,109 @@ export const summaryReviewExercises: Exercise[] = [
     gentleWrongFeedback: {
       default: 'בדקו את תנאי החידה: מכנה 10, גדול מ-5/10 (חצי), ומונה אי-זוגי (כמו 7).'
     }
+  },
+  {
+    id: 'sr-master-1',
+    topicId: 'summary-review',
+    skillTag: 'fraction_word_problems',
+    difficulty: 4,
+    title: 'מאסטר ⭐: אתגר המבחן המשולב – שברים, כמויות ושארית',
+    prompt: 'במבחן רב-שלבי: נועה פתרה 5/12 מהשאלות בשעה הראשונה, ובשעה השנייה פתרה עוד 1/4 מכלל השאלות. נותרו לה 16 שאלות לסיום המבחן. כמה שאלות היו במבחן כולו, ואיזה שבר מהמבחן נותר לה לפתור?',
+    hintSteps: [
+      'רמז 1: חברו את השאלות שנפתרו: 5/12 + 1/4 = 5/12 + 3/12 = 8/12 = 2/3 מהמבחן.',
+      'רמז 2: החלק שנותר לפתור: 1 - 2/3 = 1/3 מהמבחן.',
+      'רמז 3: אם שליש (1/3) מהמבחן שווה ל-16 שאלות, כמה שווה כל המבחן (3 שלישים)? 16 × 3.'
+    ],
+    extraExplanation: 'נועה פתרה 5/12 + 3/12 = 8/12 = 2/3 מהמבחן. נותר לה 1/3 שהם 16 שאלות. סך כל השאלות: 16 × 3 = 48 שאלות.',
+    visualType: 'bar',
+    visualProps: { totalParts: 12, coloredParts: 8, color: '#f59e0b' },
+    answerType: 'choice',
+    options: [
+      { id: 'a', label: '48 שאלות בסך הכל (נותר 1/3 מהמבחן)', isCorrect: true },
+      { id: 'b', label: '40 שאלות בסך הכל (נותר 1/4 מהמבחן)', isCorrect: false, misconceptionExplanation: '8/12 שווה ל-2/3, ולכן נותר שליש (1/3) ולא רבע.' },
+      { id: 'c', label: '36 שאלות בסך הכל', isCorrect: false, misconceptionExplanation: '16 כפול 3 שווה 48 ולא 36.' },
+      { id: 'd', label: '64 שאלות בסך הכל', isCorrect: false, misconceptionExplanation: 'בדקו שוב: 16 כפול 3 (שלישים) = 48.' }
+    ],
+    gentleWrongFeedback: {
+      default: 'חיבור שברים: 5/12 + 3/12 = 8/12 = 2/3. נותר 1/3 = 16 שאלות. המבחן כולו = 16 × 3 = 48 שאלות.'
+    }
+  },
+  {
+    id: 'sr-master-2',
+    topicId: 'summary-review',
+    skillTag: 'improper_to_mixed',
+    difficulty: 4,
+    title: 'מאסטר ⭐: חידת בלש מתמטי רב-תנאית על שבר מדומה',
+    prompt: 'אני מספר מעורב השוכן בין 3 ל-4. חלק השבר שלי הוא בעל מכנה 8. כשממירים אותי לשבר מדומה, המונה שלי הוא מספר ראשוני (מתחלק רק ב-1 ובעצמו) הגדול מ-27. מי אני?',
+    hintSteps: [
+      'רמז 1: נבדוק מונים לשברים מדומים בין 3 ל-4 עם מכנה 8 (מ-25 עד 31): 3 1/8=25/8, 3 3/8=27/8, 3 5/8=29/8, 3 7/8=31/8.',
+      'רמז 2: 25 מתחלק ב-5 (אינו ראשוני), 27 מתחלק ב-3 ו-9 (אינו ראשוני).',
+      'רמז 3: המספר הראשוני הראשון שגדול מ-27 הוא 29 (המונה של 3 5/8).'
+    ],
+    extraExplanation: '3 5/8 = (3 × 8 + 5)/8 = 29/8. המספר 29 הוא מספר ראשוני והוא גדול מ-27.',
+    visualType: 'bar',
+    visualProps: { totalParts: 8, coloredParts: 5, color: '#6366f1' },
+    answerType: 'choice',
+    options: [
+      { id: 'a', label: '3 5/8 (המונה המדומה שלו הוא 29, שהוא מספר ראשוני)', isCorrect: true },
+      { id: 'b', label: '3 3/8 (המונה שלו 27)', isCorrect: false, misconceptionExplanation: '27 מתחלק ב-3 וב-9 ולכן אינו מספר ראשוני!' },
+      { id: 'c', label: '3 1/8 (המונה שלו 25)', isCorrect: false, misconceptionExplanation: '25 אינו גדול מ-27 ואינו ראשוני (מתחלק ב-5).' },
+      { id: 'd', label: '3 4/8 (המונה שלו 28)', isCorrect: false, misconceptionExplanation: '28 הוא מספר זוגי ואינו ראשוני.' }
+    ],
+    gentleWrongFeedback: {
+      default: 'המירו למדומה: 3 5/8 = 29/8. המספר 29 הוא מספר ראשוני הגדול מ-27.'
+    }
+  },
+  {
+    id: 'sr-master-3',
+    topicId: 'summary-review',
+    skillTag: 'same_denom_comparison',
+    difficulty: 4,
+    title: 'מאסטר ⭐: סדר עולה והשוואת שברים מרובי מכנים',
+    prompt: 'סדרו את ארבעת השברים הבאים מהקטן ביותר לגדול ביותר:  A = 7/12 , B = 5/8 , C = 3/5 , D = 13/24. מהו הסדר הנכון?',
+    hintSteps: [
+      'רמז 1: הביאו את כל השברים למכנה משותף של 120 (או המירו לעשרוני).',
+      'רמז 2: D = 13/24 = 65/120 (0.541), A = 7/12 = 70/120 (0.583), C = 3/5 = 72/120 (0.600), B = 5/8 = 75/120 (0.625).',
+      'רמז 3: סדרו לפי המונים: 65 < 70 < 72 < 75.'
+    ],
+    extraExplanation: 'במכנה 120: 13/24 = 65/120, 7/12 = 70/120, 3/5 = 72/120, 5/8 = 75/120. הסדר העולה הוא: 13/24 < 7/12 < 3/5 < 5/8.',
+    visualType: 'bar',
+    visualProps: { totalParts: 24, coloredParts: 13, color: '#10b981' },
+    answerType: 'choice',
+    options: [
+      { id: 'a', label: '13/24 < 7/12 < 3/5 < 5/8', isCorrect: true },
+      { id: 'b', label: '7/12 < 13/24 < 3/5 < 5/8', isCorrect: false, misconceptionExplanation: '13/24 (65/120) קטן מ-7/12 (70/120).' },
+      { id: 'c', label: '13/24 < 3/5 < 7/12 < 5/8', isCorrect: false, misconceptionExplanation: '7/12 (0.583) קטן מ-3/5 (0.600).' },
+      { id: 'd', label: '3/5 < 7/12 < 13/24 < 5/8', isCorrect: false, misconceptionExplanation: '3/5 גדול מ-7/12 ומ-13/24.' }
+    ],
+    gentleWrongFeedback: {
+      default: 'הביאו למכנה 120: 13/24 (65) < 7/12 (70) < 3/5 (72) < 5/8 (75).'
+    }
+  },
+  {
+    id: 'sr-master-4',
+    topicId: 'summary-review',
+    skillTag: 'fraction_word_problems',
+    difficulty: 4,
+    title: 'מאסטר ⭐: סכום מרחקים של מספרים מעורבים בעלי מכנים שונים',
+    prompt: 'איתי רץ 3 3/4 ק"מ בבוקר, 2 5/8 ק"מ בצהריים, ו-1 1/2 ק"מ בערב. כמה קילומטרים רץ איתי בסך הכל בכל היום (כמספר מעורב)?',
+    hintSteps: [
+      'רמז 1: הרחיבו את כל השברים למכנה משותף 8: 3 3/4 = 3 6/8, 2 5/8 = 2 5/8, 1 1/2 = 1 4/8.',
+      'רמז 2: חברו את השלמים: 3 + 2 + 1 = 6 שלמים.',
+      'רמז 3: חברו את השברים: 6/8 + 5/8 + 4/8 = 15/8 = 1 7/8. סכמו הכל: 6 + 1 7/8.'
+    ],
+    extraExplanation: '3 6/8 + 2 5/8 + 1 4/8 = 6 + 15/8 = 6 + 1 7/8 = 7 7/8 ק"מ (שהם 63/8 ק"מ).',
+    visualType: 'mixed-bars',
+    visualProps: { wholeCount: 7, remainder: 7, denom: 8 },
+    answerType: 'choice',
+    options: [
+      { id: 'a', label: '7 7/8 קילומטרים', isCorrect: true },
+      { id: 'b', label: '7 5/8 קילומטרים', isCorrect: false, misconceptionExplanation: 'סכום המונים הוא 6 + 5 + 4 = 15, כלומר 1 7/8 ולא 1 5/8.' },
+      { id: 'c', label: '6 7/8 קילומטרים', isCorrect: false, misconceptionExplanation: 'אל תשכחו להוסיף את השלם שהתקבל מ-15/8 (1 7/8) ל-6 השלמים.' },
+      { id: 'd', label: '8 1/8 קילומטרים', isCorrect: false, misconceptionExplanation: '15 שמיניות הן 1 7/8 ולא 2 1/8.' }
+    ],
+    gentleWrongFeedback: {
+      default: 'הרחיבו לשמיניות: 3 6/8 + 2 5/8 + 1 4/8 = 6 15/8 = 7 7/8 ק"מ.'
+    }
   }
 ];

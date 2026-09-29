@@ -852,6 +852,17 @@ export function getFreshExercisesForTopic(
  * Generates a single exercise with specific difficulty for adaptive challenge mode.
  */
 export function generateSingleExercise(topicId: TopicId, difficulty: 1 | 2 | 3 | 4): Exercise {
+  if (difficulty === 4) {
+    const staticMaster = EXERCISE_BANK.filter((e) => e.topicId === topicId && e.difficulty === 4);
+    if (staticMaster.length > 0) {
+      const picked = shuffleArray(staticMaster)[0];
+      return {
+        ...picked,
+        options: sanitizeExerciseOptions(picked.options)
+      };
+    }
+  }
+
   const generatorDifficulty = (Math.min(3, difficulty)) as 1 | 2 | 3;
   let ex: Exercise;
   switch (topicId) {

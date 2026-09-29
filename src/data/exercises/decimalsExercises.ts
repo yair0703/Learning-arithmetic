@@ -169,5 +169,109 @@ export const decimalsExercises: Exercise[] = [
     gentleWrongFeedback: {
       default: 'הזיזו את הנקודה שמאלה שני מקומות: 150 חלקי 100 = 1.5 מטרים.'
     }
+  },
+  {
+    id: 'dm-master-1',
+    topicId: 'decimals-mult-div',
+    skillTag: 'decimal_multiply_10_100',
+    difficulty: 4,
+    title: 'מאסטר ⭐: שרשרת כפל וחילוק עשרונית רב-שלבית',
+    prompt: 'חשבו את תוצאת השרשרת העשרונית: (0.075 × 100) ÷ 10 × 100 = ?',
+    hintSteps: [
+      'רמז 1: שלב ראשון: 0.075 × 100 = 7.5 (מזיזים את הנקודה 2 מקומות ימינה).',
+      'רמז 2: שלב שני: 7.5 ÷ 10 = 0.75 (מזיזים את הנקודה מקום אחד שמאלה).',
+      'רמז 3: שלב שלישי: 0.75 × 100 = 75 (מזיזים את הנקודה 2 מקומות ימינה).'
+    ],
+    extraExplanation: '0.075 × 100 = 7.5. לאחר מכן: 7.5 ÷ 10 = 0.75. לבסוף: 0.75 × 100 = 75.',
+    visualType: 'decimal-table',
+    visualProps: { before: '0.075', op: '× 100 ÷ 10 × 100', after: '75' },
+    answerType: 'choice',
+    options: [
+      { id: 'a', label: '75', isCorrect: true },
+      { id: 'b', label: '7.5', isCorrect: false, misconceptionExplanation: '7.5 היא התוצאה אחרי השלב הראשון בלבד!' },
+      { id: 'c', label: '750', isCorrect: false, misconceptionExplanation: 'הוספתם מקום עשרוני מיותר.' },
+      { id: 'd', label: '0.75', isCorrect: false, misconceptionExplanation: '0.75 היא התוצאה לפני הכפל הסופי ב-100.' }
+    ],
+    gentleWrongFeedback: {
+      default: 'עקבו אחרי הנקודה: 0.075 -> (×100) 7.5 -> (÷10) 0.75 -> (×100) 75.'
+    }
+  },
+  {
+    id: 'dm-master-2',
+    topicId: 'decimals-mult-div',
+    skillTag: 'decimal_place_value',
+    difficulty: 4,
+    title: 'מאסטר ⭐: מציאת הגורם החסר במשוואה עשרונית',
+    prompt: 'במשוואה שלפניכם:  3.4 × [?] ÷ 100 = 340 , מהו המספר שחייב להופיע בתוך סימן השאלה [?] ?',
+    hintSteps: [
+      'רמז 1: נבצע פעולה הפוכה: אם לאחר חילוק ב-100 קיבלנו 340, אז לפני החילוק התוצאה הייתה 340 × 100 = 34,000.',
+      'רמז 2: כעת נשאל: 3.4 כפול איזה מספר שווה ל-34,000?',
+      'רמז 3: 34,000 / 3.4 = 10,000 (כי מזיזים את הנקודה ב-3.4 ארבעה מקומות ימינה).'
+    ],
+    extraExplanation: '3.4 × [?] = 340 × 100 = 34,000. לכן [?] = 34,000 / 3.4 = 10,000.',
+    visualType: 'decimal-table',
+    visualProps: { before: '3.4', op: '× 10,000 ÷ 100', after: '340' },
+    answerType: 'choice',
+    options: [
+      { id: 'a', label: '10,000', isCorrect: true },
+      { id: 'b', label: '1,000', isCorrect: false, misconceptionExplanation: '3.4 × 1,000 = 3,400. חלוקה ב-100 הייתה נותנת 34 ולא 340.' },
+      { id: 'c', label: '100', isCorrect: false, misconceptionExplanation: 'כפל וחילוק ב-100 היו משאירים את המספר 3.4.' },
+      { id: 'd', label: '100,000', isCorrect: false, misconceptionExplanation: 'הכפלה ב-100,000 הייתה מביאה ל-3,400 ולא ל-340.' }
+    ],
+    gentleWrongFeedback: {
+      default: '340 × 100 = 34,000. המספר שכופלים בו את 3.4 לקבלת 34,000 הוא 10,000.'
+    }
+  },
+  {
+    id: 'dm-master-3',
+    topicId: 'decimals-mult-div',
+    skillTag: 'decimal_divide_10_100',
+    difficulty: 4,
+    title: 'מאסטר ⭐: המרת יחידות רב-שלבית מטרים למילימטרים',
+    prompt: 'גליל בד באורך 4.85 מטרים נחתך ל-10 חתיכות שוות. מהו אורכה של כל חתיכה במילימטרים? (ידוע כי 1 מטר = 1,000 מ"מ).',
+    hintSteps: [
+      'רמז 1: מצאו את האורך במטרים של חתיכה אחת: 4.85 ÷ 10 = 0.485 מטרים.',
+      'רמז 2: המירו ממטרים למילימטרים ע"י הכפלה ב-1,000.',
+      'רמז 3: 0.485 × 1,000: הזיזו את הנקודה העשרונית 3 מקומות ימינה לקבלת מילימטרים.'
+    ],
+    extraExplanation: 'שלב 1: 4.85 / 10 = 0.485 מטר לחתיכה. שלב 2: 0.485 × 1,000 = 485 מילימטרים.',
+    visualType: 'decimal-table',
+    visualProps: { before: '4.85 מטר', op: '÷ 10 × 1000', after: '485 מ״מ' },
+    answerType: 'choice',
+    options: [
+      { id: 'a', label: '485 מ״מ', isCorrect: true },
+      { id: 'b', label: '48.5 מ״מ', isCorrect: false, misconceptionExplanation: '48.5 זה אורך בסנטימטרים (כפל ב-100) ולא במילימטרים!' },
+      { id: 'c', label: '4,850 מ״מ', isCorrect: false, misconceptionExplanation: '4,850 מ"מ זה אורך הגליל כולו לפני החיתוך ל-10 חתיכות.' },
+      { id: 'd', label: '4.85 מ״מ', isCorrect: false, misconceptionExplanation: 'בדקו שוב: 0.485 × 1,000 = 485.' }
+    ],
+    gentleWrongFeedback: {
+      default: '4.85 מ\' חלקי 10 = 0.485 מ\'. הכפלה ב-1,000 (להמרה למ"מ) נותנת 485 מ"מ.'
+    }
+  },
+  {
+    id: 'dm-master-4',
+    topicId: 'decimals-mult-div',
+    skillTag: 'decimal_multiply_10_100',
+    difficulty: 4,
+    title: 'מאסטר ⭐: חישוב רכש מרובה והמרת מחיר עשרוני',
+    prompt: 'קופסת ברגים מכילה 100 ברגים. מחירו של בורג בודד הוא 35 אגורות (0.35 ש״ח). קבלן רכש 10 קופסאות כאלה. כמה שקלים שילם הקבלן בסך הכל?',
+    hintSteps: [
+      'רמז 1: כמה ברגים יש ב-10 קופסאות? 10 × 100 = 1,000 ברגים בסך הכל.',
+      'רמז 2: כפלו את כמות הברגים (1,000) במחיר בורג יחיד (0.35 ש"ח).',
+      'רמז 3: 0.35 × 1,000 = מזיזים את הנקודה 3 מקומות ימינה: 0.35 -> 3.5 -> 35 -> 350.'
+    ],
+    extraExplanation: '10 קופסאות × 100 ברגים = 1,000 ברגים. מחיר כולל: 1,000 × 0.35 = 350 שקלים.',
+    visualType: 'decimal-table',
+    visualProps: { before: '0.35 ש״ח', op: '× 100 × 10', after: '350 ש״ח' },
+    answerType: 'choice',
+    options: [
+      { id: 'a', label: '350 שקלים', isCorrect: true },
+      { id: 'b', label: '35 שקלים', isCorrect: false, misconceptionExplanation: '35 שקלים זה המחיר של קופסה אחת (100 ברגים) בלבד, הקבלן קנה 10 קופסאות!' },
+      { id: 'c', label: '3,500 שקלים', isCorrect: false, misconceptionExplanation: 'הזזתם מקום עשרוני אחד יותר מדי.' },
+      { id: 'd', label: '3.5 שקלים', isCorrect: false, misconceptionExplanation: '3.5 שקלים שווה ל-10 ברגים בלבד.' }
+    ],
+    gentleWrongFeedback: {
+      default: 'סה"כ 1,000 ברגים. 1,000 × 0.35 ש"ח = 350 שקלים.'
+    }
   }
 ];

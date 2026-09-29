@@ -164,5 +164,109 @@ export const mixedNumbersExercises: Exercise[] = [
     gentleWrongFeedback: {
       default: 'כלל ברזל: במספר מעורב אסור שחלק השבר יהיה גדול מ-1! 17 חלקי 4 שווה 4 שלמים ו-1/4.'
     }
+  },
+  {
+    id: 'mn-master-1',
+    topicId: 'mixed-numbers',
+    skillTag: 'improper_to_mixed',
+    difficulty: 4,
+    title: 'מאסטר ⭐: הפרש קיצון בין שברים מדומים מרובי מכנים',
+    prompt: 'נתונים ארבעה שברים מדומים: 37/6, 29/4, 43/8, 26/3. המירו אותם למספרים מעורבים, מצאו את השבר הגדול ביותר ואת הקטן ביותר, וחשבו את ההפרש המדויק ביניהם.',
+    hintSteps: [
+      'רמז 1: המירו כל שבר: 37/6 = 6 1/6, 29/4 = 7 1/4, 43/8 = 5 3/8 (הקטן ביותר!), 26/3 = 8 2/3 (הגדול ביותר!).',
+      'רמז 2: חשבו את ההפרש: 8 2/3 פחות 5 3/8. הביאו למכנה משותף 24: 8 16/24 פחות 5 9/24.',
+      'רמז 3: 8 פחות 5 = 3 שלמים, ו-16/24 פחות 9/24 = 7/24.'
+    ],
+    extraExplanation: 'השבר הגדול ביותר הוא 26/3 = 8 2/3. השבר הקטן ביותר הוא 43/8 = 5 3/8. ההפרש: 8 16/24 - 5 9/24 = 3 7/24 (או 79/24).',
+    visualType: 'mixed-bars',
+    visualProps: { wholeCount: 8, remainder: 2, denom: 3 },
+    answerType: 'choice',
+    options: [
+      { id: 'a', label: '3 7/24 (שהם 79/24)', isCorrect: true },
+      { id: 'b', label: '2 5/24', isCorrect: false, misconceptionExplanation: '8 פחות 5 שווה 3 שלמים ולא 2.' },
+      { id: 'c', label: '3 5/8', isCorrect: false, misconceptionExplanation: 'חייבים להרחיב למכנה משותף 24: 16 פחות 9 זה 7 ולא 15.' },
+      { id: 'd', label: '4 1/12', isCorrect: false, misconceptionExplanation: 'בדקו שוב את זיהוי השבר הקטן ביותר (43/8 = 5 3/8).' }
+    ],
+    gentleWrongFeedback: {
+      default: 'המירו למעורבים, מצאו את הגדול (8 2/3) והקטן (5 3/8), הרחיבו למכנה 24 וחסרו: 8 16/24 - 5 9/24 = 3 7/24.'
+    }
+  },
+  {
+    id: 'mn-master-2',
+    topicId: 'mixed-numbers',
+    skillTag: 'mixed_to_improper',
+    difficulty: 4,
+    title: 'מאסטר ⭐: משוואת שברים מעורבים והשלמה לשלם',
+    prompt: 'כמה חמישיות יש להוסיף למספר המעורב 4 3/5 כדי להגיע בדיוק למספר המעורב 8 1/5, וכיצד נרשמת התוצאה כמספר מעורב וכשבר מדומה?',
+    hintSteps: [
+      'רמז 1: נחסר את המספר ההתחלתי מהיעד: 8 1/5 פחות 4 3/5.',
+      'רמז 2: מכיוון ש-1/5 קטן מ-3/5, נפרק שלם אחד מ-8: 8 1/5 = 7 6/5.',
+      'רמז 3: 7 6/5 פחות 4 3/5 = 3 3/5. בשבר מדומה: (3 × 5 + 3) / 5 = 18/5 (18 חמישיות).'
+    ],
+    extraExplanation: '8 1/5 - 4 3/5 = 7 6/5 - 4 3/5 = 3 3/5. המרה לשבר מדומה נותנת 18/5 חמישיות.',
+    visualType: 'mixed-bars',
+    visualProps: { wholeCount: 3, remainder: 3, denom: 5 },
+    answerType: 'choice',
+    options: [
+      { id: 'a', label: '18 חמישיות (שהם 3 3/5)', isCorrect: true },
+      { id: 'b', label: '22 חמישיות (שהם 4 2/5)', isCorrect: false, misconceptionExplanation: 'כשמפרקים שלם, 8 הופך ל-7 ולא נשאר 8.' },
+      { id: 'c', label: '16 חמישיות (שהם 3 1/5)', isCorrect: false, misconceptionExplanation: '6 חמישיות פחות 3 חמישיות שווה 3 חמישיות.' },
+      { id: 'd', label: '14 חמישיות (שהם 2 4/5)', isCorrect: false, misconceptionExplanation: '7 שלמים פחות 4 שלמים שווה 3 שלמים.' }
+    ],
+    gentleWrongFeedback: {
+      default: 'פרקו שלם מ-8: 8 1/5 הופך ל-7 6/5. כעת חסרו: 7 6/5 - 4 3/5 = 3 3/5 = 18/5.'
+    }
+  },
+  {
+    id: 'mn-master-3',
+    topicId: 'mixed-numbers',
+    skillTag: 'improper_to_mixed',
+    difficulty: 4,
+    title: 'מאסטר ⭐: פירוק מדומה במספרים דו-ספרתיים גדולים',
+    prompt: 'השבר המדומה 94/7 נרשם בצורה: A שלמים ו-B שביעיות (A B/7), כאשר B/7 הוא שבר אמיתי מצומצם. מהו הערך של A + B?',
+    hintSteps: [
+      'רמז 1: כמה פעמים 7 נכנס במלואו ב-94? (13 × 7 = 91). לכן השלם A = 13.',
+      'רמז 2: מהי השארית שנותרה מ-91 עד 94? 94 - 91 = 3. לכן מונה השבר B = 3.',
+      'רמז 3: חברו את שני הערכים: A + B = 13 + 3.'
+    ],
+    extraExplanation: '94 חלקי 7 שווה 13 שלמים ושארית 3, כלומר 94/7 = 13 3/7. לכן A = 13, B = 3, וסכומם הוא 13 + 3 = 16.',
+    visualType: 'mixed-bars',
+    visualProps: { wholeCount: 13, remainder: 3, denom: 7 },
+    answerType: 'choice',
+    options: [
+      { id: 'a', label: '16 (כי A=13 ו-B=3)', isCorrect: true },
+      { id: 'b', label: '17', isCorrect: false, misconceptionExplanation: '13 × 7 = 91, השארית היא 3 ולא 4.' },
+      { id: 'c', label: '15', isCorrect: false, misconceptionExplanation: 'בדקו שוב את חלוקת 94 ב-7 (13 פעמים שלמות עם שארית 3).' },
+      { id: 'd', label: '20', isCorrect: false, misconceptionExplanation: '14 × 7 = 98 (גדול מ-94), לכן השלם הוא 13.' }
+    ],
+    gentleWrongFeedback: {
+      default: 'חלקו עם שארית: 94 = 13 × 7 + 3. לכן המספר המעורב הוא 13 3/7. A=13, B=3, וסכומם 16.'
+    }
+  },
+  {
+    id: 'mn-master-4',
+    topicId: 'mixed-numbers',
+    skillTag: 'mixed_to_improper',
+    difficulty: 4,
+    title: 'מאסטר ⭐: השוואת סכומי מספרים מעורבים בעלי שברים מדומים',
+    prompt: 'איזה מבין ארבעת הסכומים הבאים מניב את התוצאה הסופית הגדולה ביותר?',
+    hintSteps: [
+      'רמז 1: חשבו כל ביטוי: א׳) 3 5/6 + 2 5/6 = 5 10/6 = 6 4/6 = 6 2/3.',
+      'רמז 2: ב׳) 4 2/3 + 1 5/6 = 4 4/6 + 1 5/6 = 5 9/6 = 6 3/6 = 6 1/2.',
+      'רמז 3: ג׳) 3 3/4 + 2 1/2 = 6 1/4. ד׳) 2 7/8 + 3 3/8 = 6 2/8 = 6 1/4. השוו: 6 2/3 הוא הגדול מכולם!'
+    ],
+    extraExplanation: '3 5/6 + 2 5/6 = 5 10/6 = 6 4/6 = 6 2/3 (6.666...). תוצאה זו גדולה מ-6 1/2 (6.50) ומ-6 1/4 (6.25).',
+    visualType: 'mixed-bars',
+    visualProps: { wholeCount: 6, remainder: 4, denom: 6 },
+    answerType: 'choice',
+    options: [
+      { id: 'a', label: '3 5/6 + 2 5/6 (שווה ל-6 2/3)', isCorrect: true },
+      { id: 'b', label: '4 2/3 + 1 5/6 (שווה ל-6 1/2)', isCorrect: false, misconceptionExplanation: '6 1/2 = 6 3/6 קטן מ-6 4/6.' },
+      { id: 'c', label: '3 3/4 + 2 1/2 (שווה ל-6 1/4)', isCorrect: false, misconceptionExplanation: '6 1/4 = 6.25 קטן מ-6.666...' },
+      { id: 'd', label: '2 7/8 + 3 3/8 (שווה ל-6 1/4)', isCorrect: false, misconceptionExplanation: '5 + 10/8 = 6 2/8 = 6 1/4.' }
+    ],
+    gentleWrongFeedback: {
+      default: 'חברו והמירו: 3 5/6 + 2 5/6 = 5 10/6 = 6 4/6 = 6 2/3, שזהו הערך הגדול ביותר מבין כל האפשרויות!'
+    }
   }
 ];

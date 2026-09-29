@@ -169,5 +169,109 @@ export const sameDenomExercises: Exercise[] = [
     gentleWrongFeedback: {
       default: 'חברו את כל המונים שלמעלה: 2 ועוד 3 ועוד 1 = 6 שמיניות (6/8).'
     }
+  },
+  {
+    id: 'sd-master-1',
+    topicId: 'same-denom',
+    skillTag: 'same_denom_subtraction',
+    difficulty: 4,
+    title: 'מאסטר ⭐: ביטוי רב-איברים עם סוגריים וצמצום מלא',
+    prompt: 'פתרו את הביטוי הבא, המירו למספר מעורב וצמצמו לחלוטין: (19/12 + 17/12) - (11/12 + 7/12) = ?',
+    hintSteps: [
+      'רמז 1: פתרו את הסוגריים הראשונים: 19/12 + 17/12 = 36/12 = 3 שלמים.',
+      'רמז 2: פתרו את הסוגריים השניים: 11/12 + 7/12 = 18/12.',
+      'רמז 3: חסרו: 36/12 - 18/12 = 18/12 = 1 6/12. צמצמו את 6/12 וקבלו 1 1/2.'
+    ],
+    extraExplanation: '(19+17)/12 - (11+7)/12 = 36/12 - 18/12 = 18/12 = 1 6/12 = 1 1/2 (אחד וחצי).',
+    visualType: 'bar',
+    visualProps: { totalParts: 12, coloredParts: 6, color: '#f59e0b' },
+    answerType: 'choice',
+    options: [
+      { id: 'a', label: '1 1/2 (שהם 18/12)', isCorrect: true },
+      { id: 'b', label: '1 1/3 (שהם 16/12)', isCorrect: false, misconceptionExplanation: '18 חלקי 12 מצטמצם בחלוקה ב-6 לחצי (1/2) ולא לשליש.' },
+      { id: 'c', label: '2 1/4', isCorrect: false, misconceptionExplanation: '36 פחות 18 שווה 18, ולא 27.' },
+      { id: 'd', label: '1 5/12', isCorrect: false, misconceptionExplanation: 'בדקו שוב את חיבור המונים בתוך הסוגריים.' }
+    ],
+    gentleWrongFeedback: {
+      default: 'פתרו לפי סדר פעולות: (36/12) - (18/12) = 18/12 = 1 6/12 = 1 1/2.'
+    }
+  },
+  {
+    id: 'sd-master-2',
+    topicId: 'same-denom',
+    skillTag: 'same_denom_subtraction',
+    difficulty: 4,
+    title: 'מאסטר ⭐: מציאת שבר נעלם בשרשרת פעולות',
+    prompt: 'במשוואה שלפניכם, מהו השבר שצריך להופיע במקום סימן השאלה [?] כדי שהשוויון יתקיים?  4 2/9 - [?] + 5/9 = 2 8/9',
+    hintSteps: [
+      'רמז 1: המירו את המספרים המעורבים לשברים מדומים בעלי מכנה 9: 4 2/9 = 38/9, ו-2 8/9 = 26/9.',
+      'רמז 2: חברו את השברים החיוביים: 38/9 + 5/9 = 43/9.',
+      'רמז 3: כעת מצאו את הנעלם: 43/9 פחות 26/9 = 17/9 = 1 8/9.'
+    ],
+    extraExplanation: 'נמיר לשברים מדומים: 38/9 + 5/9 - [?] = 26/9. לכן 43/9 - [?] = 26/9. הנעלם הוא 43/9 - 26/9 = 17/9 = 1 8/9.',
+    visualType: 'bar',
+    visualProps: { totalParts: 9, coloredParts: 8, color: '#6366f1' },
+    answerType: 'choice',
+    options: [
+      { id: 'a', label: '1 8/9 (שהם 17/9)', isCorrect: true },
+      { id: 'b', label: '2 1/9 (שהם 19/9)', isCorrect: false, misconceptionExplanation: '43 פחות 26 שווה 17 ולא 19.' },
+      { id: 'c', label: '1 5/9 (שהם 14/9)', isCorrect: false, misconceptionExplanation: 'בדקו שוב את חיבור 38 ועוד 5 (43).' },
+      { id: 'd', label: '2 2/9 (שהם 20/9)', isCorrect: false, misconceptionExplanation: 'החסרת 20/9 הייתה מביאה לתוצאה של 23/9 ולא 26/9.' }
+    ],
+    gentleWrongFeedback: {
+      default: 'המירו למדומים: 43/9 פחות [?] שווה 26/9. לכן [?] = 43/9 - 26/9 = 17/9 = 1 8/9.'
+    }
+  },
+  {
+    id: 'sd-master-3',
+    topicId: 'same-denom',
+    skillTag: 'same_denom_subtraction',
+    difficulty: 4,
+    title: 'מאסטר ⭐: חיסור כפול משלם שלם עם פריקת שברים',
+    prompt: 'חשבו את תוצאת התרגיל: 7 - 2 3/10 - 1 9/10, וצמצמו את התוצאה לצורתה הפשוטה ביותר.',
+    hintSteps: [
+      'רמז 1: נחבר קודם את שני המספרים שאנו מחסירים: 2 3/10 + 1 9/10 = 3 12/10 = 4 2/10.',
+      'רמז 2: כעת נחסר מ-7: 7 פחות 4 2/10 = 2 8/10.',
+      'רמז 3: נצמצם את 8/10 ב-2 ונקבל: 2 4/5.'
+    ],
+    extraExplanation: 'סכום המספרים שמחסירים: 2 3/10 + 1 9/10 = 4 2/10. חיסור מ-7: 7 - 4 2/10 = 2 8/10 = 2 4/5 (או 14/5).',
+    visualType: 'bar',
+    visualProps: { totalParts: 10, coloredParts: 8, color: '#10b981' },
+    answerType: 'choice',
+    options: [
+      { id: 'a', label: '2 4/5 (שהם 2 8/10)', isCorrect: true },
+      { id: 'b', label: '3 1/5 (שהם 3 2/10)', isCorrect: false, misconceptionExplanation: 'כשמחסירים 4 2/10 מ-7 נשאר 2 8/10 ולא 3.' },
+      { id: 'c', label: '2 1/2 (שהם 2 5/10)', isCorrect: false, misconceptionExplanation: '10 פחות 2 שווה 8 עשיריות (4/5) ולא 5 עשיריות.' },
+      { id: 'd', label: '3 4/5', isCorrect: false, misconceptionExplanation: '7 פחות 4 שלמים מותיר 3 שלמים פחות 2 עשיריות = 2 8/10.' }
+    ],
+    gentleWrongFeedback: {
+      default: 'חברו את המחוסרים: 2 3/10 + 1 9/10 = 4 2/10. 7 פחות 4 2/10 = 2 8/10 = 2 4/5.'
+    }
+  },
+  {
+    id: 'sd-master-4',
+    topicId: 'same-denom',
+    skillTag: 'same_denom_addition',
+    difficulty: 4,
+    title: 'מאסטר ⭐: שרשרת חיבור וחיסור סוגריים עם צמצום',
+    prompt: 'חשבו את הערך של הביטוי: (25/16 - 7/16) - (13/16 - 9/16) + 6/16. מהו המספר המעורב המצומצם ביותר המתקבל?',
+    hintSteps: [
+      'רמז 1: סוגריים ראשונים: 25/16 - 7/16 = 18/16.',
+      'רמז 2: סוגריים שניים: 13/16 - 9/16 = 4/16.',
+      'רמז 3: בצעו לפי הסדר: 18/16 - 4/16 + 6/16 = 20/16 = 1 4/16 = 1 1/4.'
+    ],
+    extraExplanation: '18/16 - 4/16 + 6/16 = (18 - 4 + 6)/16 = 20/16 = 1 4/16 = 1 1/4 (אחד ורבע).',
+    visualType: 'bar',
+    visualProps: { totalParts: 16, coloredParts: 4, color: '#ec4899' },
+    answerType: 'choice',
+    options: [
+      { id: 'a', label: '1 1/4 (שהם 20/16)', isCorrect: true },
+      { id: 'b', label: '1 1/8 (שהם 18/16)', isCorrect: false, misconceptionExplanation: '14/16 ועוד 6/16 שווה 20/16 ולא 18/16.' },
+      { id: 'c', label: '1 3/8 (שהם 22/16)', isCorrect: false, misconceptionExplanation: 'בדקו שוב את פעולת החיסור בסוגריים השניים (13 פחות 9 = 4).' },
+      { id: 'd', label: '7/8 (שהם 14/16)', isCorrect: false, misconceptionExplanation: 'אל תשכחו להוסיף את 6/16 בסוף הביטוי.' }
+    ],
+    gentleWrongFeedback: {
+      default: 'חשבו שלב אחרי שלב: 18/16 - 4/16 + 6/16 = 20/16 = 1 4/16 = 1 1/4.'
+    }
   }
 ];

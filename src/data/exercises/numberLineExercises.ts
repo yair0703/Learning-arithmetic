@@ -163,5 +163,109 @@ export const numberLineExercises: Exercise[] = [
     gentleWrongFeedback: {
       default: 'המונה הוא מספר הצעדים (5), והמכנה הוא מספר הקטעים הכולל (8). התשובה היא 5/8.'
     }
+  },
+  {
+    id: 'nl-master-1',
+    topicId: 'number-line',
+    skillTag: 'number_line_placement',
+    difficulty: 4,
+    title: 'מאסטר ⭐: קרבה לשלם – השוואת מרחקים על ציר המספרים',
+    prompt: 'על ישר המספרים נתונים שני שברים מדומים: 11/4 ו-17/5. איזה מהשברים קרוב יותר למספר השלם 3, ומהו המרחק שלו מ-3?',
+    hintSteps: [
+      'רמז 1: המירו את שני השברים למספרים מעורבים: 11/4 = 2 3/4, ו-17/5 = 3 2/5.',
+      'רמז 2: חשבו את המרחק של כל אחד מ-3: המרחק מ-2 3/4 ל-3 הוא 1/4 (0.25), והמרחק מ-3 ל-3 2/5 הוא 2/5 (0.40).',
+      'רמז 3: השוו את המרחקים: 1/4 קטן מ-2/5, ולכן 11/4 קרוב יותר ל-3!'
+    ],
+    extraExplanation: '11/4 שווה ל-2 ו-3/4 (מרחק של רבע 1/4 מ-3). 17/5 שווה ל-3 ו-2/5 (מרחק של שתי חמישיות 2/5 = 0.4 מ-3). מכיוון ש-1/4 קטן מ-2/5, 11/4 קרוב יותר ל-3.',
+    visualType: 'number-line',
+    visualProps: { min: 2, max: 4, divisions: 20, targetIndex: 15, dotColor: '#f59e0b' },
+    answerType: 'choice',
+    options: [
+      { id: 'a', label: '11/4 קרוב יותר ל-3 (במרחק 1/4)', isCorrect: true },
+      { id: 'b', label: '17/5 קרוב יותר ל-3 (במרחק 2/5)', isCorrect: false, misconceptionExplanation: '2/5 (0.40) גדול יותר מ-1/4 (0.25), ולכן המרחק מ-17/5 גדול יותר.' },
+      { id: 'c', label: 'שני השברים נמצאים בדיוק באותו מרחק מ-3', isCorrect: false, misconceptionExplanation: '1/4 (רבע) אינו שווה ל-2/5 (שתי חמישיות).' },
+      { id: 'd', label: '11/4 קרוב יותר ל-3 (במרחק 3/4)', isCorrect: false, misconceptionExplanation: 'המרחק מ-2 3/4 ל-3 הוא 1/4 (ההפרש עד השלם הבא), ולא 3/4.' }
+    ],
+    gentleWrongFeedback: {
+      default: 'המירו למעורבים: 11/4 = 2 3/4 (מרחק 1/4 מ-3). 17/5 = 3 2/5 (מרחק 2/5 מ-3). 1/4 קטן מ-2/5 ולכן 11/4 קרוב יותר.'
+    }
+  },
+  {
+    id: 'nl-master-2',
+    topicId: 'number-line',
+    skillTag: 'number_line_placement',
+    difficulty: 4,
+    title: 'מאסטר ⭐: נקודת אמצע מדויקת על ישר המספרים',
+    prompt: 'איזה מספר מייצג את נקודת האמצע המדויקת שבין השבר המדומה 7/3 לבין המספר השלם 3 על ישר המספרים?',
+    hintSteps: [
+      'רמז 1: רשמו את 3 כשבר עם מכנה 3: 3 = 9/3.',
+      'רמז 2: אמצע המרחק בין 7/3 ל-9/3 הוא הממוצע שלהם: (7/3 + 9/3) לחלק ל-2.',
+      'רמז 3: (16/3) לחלק ל-2 = 16/6, נצמצם ב-2 ונקבל 8/3 (שהם 2 ו-2/3).'
+    ],
+    extraExplanation: 'המספר 3 הוא 9/3. בין 7/3 ל-9/3 יש מרחק של 2 שלישים (2/3). חצי מהמרחק הוא שליש אחד (1/3). 7/3 + 1/3 = 8/3 (או 2 2/3).',
+    visualType: 'number-line',
+    visualProps: { min: 2, max: 4, divisions: 6, targetIndex: 4, dotColor: '#6366f1' },
+    answerType: 'choice',
+    options: [
+      { id: 'a', label: '8/3 (שהם 2 2/3)', isCorrect: true },
+      { id: 'b', label: '8/6 (שהם 1 1/3)', isCorrect: false, misconceptionExplanation: '8/6 קטן מ-2, ואילו 7/3 ו-3 נמצאים מעל 2.' },
+      { id: 'c', label: '5/2 (שהם 2 1/2)', isCorrect: false, misconceptionExplanation: '2 1/2 = 2.5, בעוד ש-8/3 = 2.666... נקודת האמצע בין 2.333 ל-3 היא 2.666.' },
+      { id: 'd', label: '7/2 (שהם 3 1/2)', isCorrect: false, misconceptionExplanation: '3 1/2 גדול מ-3, ולכן אינו יכול להיות האמצע בין 7/3 ל-3.' }
+    ],
+    gentleWrongFeedback: {
+      default: '3 שווה ל-9/3. המספר שנמצא בדיוק באמצע בין 7/3 ל-9/3 הוא 8/3!'
+    }
+  },
+  {
+    id: 'nl-master-3',
+    topicId: 'number-line',
+    skillTag: 'number_line_intervals',
+    difficulty: 4,
+    title: 'מאסטר ⭐: מרחק מקוטע בין שנתות פנימיות',
+    prompt: 'הקטע בין 1 ל-2 על ישר המספרים חולק ל-12 שנתות שוות. נקודה A נמצאת 3 שנתות מימין ל-1, ונקודה B נמצאת 8 שנתות מימין ל-1. מהו המרחק המצומצם בין נקודה B לנקודה A?',
+    hintSteps: [
+      'רמז 1: ספרו כמה שנתות (קטעים קטנים) מפרידות בין שנת 3 לשנת 8: 8 - 3 = 5 שנתות.',
+      'רמז 2: מכיוון שכל יחידה שלמה מחולקת ל-12 שנתות, כל שנתה שווה ל-1/12.',
+      'רמז 3: 5 שנתות שוות ל-5/12.'
+    ],
+    extraExplanation: 'נקודה A היא 1 + 3/12 = 15/12. נקודה B היא 1 + 8/12 = 20/12. המרחק ביניהן הוא 20/12 - 15/12 = 5/12 (חמש חלקי שתים-עשרה).',
+    visualType: 'number-line',
+    visualProps: { min: 1, max: 2, divisions: 12, targetIndex: 5, dotColor: '#10b981' },
+    answerType: 'choice',
+    options: [
+      { id: 'a', label: '5/12', isCorrect: true },
+      { id: 'b', label: '1/2', isCorrect: false, misconceptionExplanation: '1/2 שווה ל-6/12, אך המרחק ביניהן הוא רק 5 שנתות.' },
+      { id: 'c', label: '1/3', isCorrect: false, misconceptionExplanation: '1/3 שווה ל-4/12, אך המרחק הוא 8 - 3 = 5 שנתות.' },
+      { id: 'd', label: '11/12', isCorrect: false, misconceptionExplanation: '11/12 זה סכום השנתות (3+8) ולא ההפרש ביניהן.' }
+    ],
+    gentleWrongFeedback: {
+      default: 'המרחק בין שנת 3 לשנת 8 הוא 5 קטעים. כיוון שהשלם מחולק ל-12, המרחק הוא 5/12.'
+    }
+  },
+  {
+    id: 'nl-master-4',
+    topicId: 'number-line',
+    skillTag: 'number_line_placement',
+    difficulty: 4,
+    title: 'מאסטר ⭐: זיהוי השבר הגדול ביותר מבין שברים מדומים',
+    prompt: 'איזה מבין ארבעת המספרים הבאים ממוקם בנקודה הימנית ביותר (בעל הערך הגדול ביותר) על ישר המספרים: 19/6, 13/4, 16/5, או 3 1/3?',
+    hintSteps: [
+      'רמז 1: המירו את כל השברים למספרים מעורבים עם שלם 3: 19/6 = 3 1/6, 13/4 = 3 1/4, 16/5 = 3 1/5, 3 1/3.',
+      'רמז 2: השוו את השברים: 1/6, 1/4, 1/5, 1/3. לאיזה שבר יש את המכנה הקטן ביותר (כלומר החלק הגדול ביותר)?',
+      'רמז 3: 1/3 גדול מ-1/4, 1/5 ו-1/6. לכן 3 1/3 הוא הגדול מכולם.'
+    ],
+    extraExplanation: 'כולם שווים ל-3 שלמים ועוד שבר יחידה: 3 1/6 (3.16), 3 1/5 (3.20), 3 1/4 (3.25), 3 1/3 (3.33). השבר 1/3 הוא הגדול מכולם ולכן 3 1/3 נמצא הכי ימינה על הישר.',
+    visualType: 'number-line',
+    visualProps: { min: 3, max: 4, divisions: 12, targetIndex: 4, dotColor: '#ec4899' },
+    answerType: 'choice',
+    options: [
+      { id: 'a', label: '3 1/3 (שהם 10/3)', isCorrect: true },
+      { id: 'b', label: '13/4 (שהם 3 1/4)', isCorrect: false, misconceptionExplanation: '1/4 = 0.25 קטן מ-1/3 = 0.333...' },
+      { id: 'c', label: '16/5 (שהם 3 1/5)', isCorrect: false, misconceptionExplanation: '1/5 = 0.20 קטן מ-1/3.' },
+      { id: 'd', label: '19/6 (שהם 3 1/6)', isCorrect: false, misconceptionExplanation: '1/6 = 0.166... הוא הקטן מבין ארבעתם.' }
+    ],
+    gentleWrongFeedback: {
+      default: 'המירו למעורבים: 3 1/6, 3 1/5, 3 1/4, 3 1/3. ככל שהמכנה קטן יותר החלק גדול יותר: 1/3 > 1/4 > 1/5 > 1/6, לכן 3 1/3 הוא הגדול ביותר!'
+    }
   }
 ];
